@@ -8,8 +8,8 @@ def dice_coeff(input: Tensor, target: Tensor):
     input = (input > 0.5).float()
     smooth = 1e-5
     num = target.size(0)
-    input = input.view(num, -1)
-    target = target.view(num, -1)
+    input = input.view(num, -1).float()
+    target = target.view(num, -1).float()
     intersection = (input * target)
     dice = (2. * intersection.sum(1) + smooth) / (input.sum(1) + target.sum(1) + smooth)
     dice = dice.sum() / num
@@ -21,8 +21,8 @@ def iou_coeff(input: Tensor, target: Tensor):
     input = (input > 0.5).float()
     smooth = 1e-5
     num = target.size(0)
-    input = input.view(num, -1)
-    target = target.view(num, -1)
+    input = input.view(num, -1).float()
+    target = target.view(num, -1).float()
     intersection = (input * target)
     union = (intersection.sum(1) + smooth) / (input.sum(1) + target.sum(1) - intersection.sum(1) + smooth)
     union = union.sum() / num
@@ -51,5 +51,5 @@ def multiclass_iou_coeff(input: Tensor, target: Tensor):
 
 def calc_accuracy(input: Tensor, target: Tensor):
     n = input.size(0)
-    acc = torch.sum(input == target).sum().item() / n
+    acc = torch.sum(input == target).sum() / n
     return acc

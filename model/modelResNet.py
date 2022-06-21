@@ -227,15 +227,15 @@ class MutilResNet2dModel(object):
         self.image_channel = image_channel
         self.numclass = numclass
 
-        self.alpha = [1. / self.numclass] * self.numclass
+        self.alpha = [1.] * self.numclass
         self.gamma = 2
 
         self.use_cuda = use_cuda
         self.device = torch.device('cuda' if self.use_cuda else 'cpu')
 
-        self.model = ResNet2d(self.image_channel, self.numclass)
+        self.model = ResNet2d(self.image_channel, self.numclass, self.device)
         self.model.to(device=self.device)
-
+        self.alpha = torch.as_tensor(self.alpha).contiguous().to(self.device)
         if inference:
             print(f'Loading model {model_path}')
             print(f'Using device {self.device}')
@@ -304,7 +304,7 @@ class MutilResNet2dModel(object):
                 # send the input to the device
                 x, y = x.to(self.device), y.to(self.device)
                 # perform a forward pass and calculate the training loss and accu
-                pred_logit, pred = self.model(x)
+                pred = self.model(x)
                 if self.loss_name is 'MutilCrossEntropyLoss':
                     loss = lossFunc(pred, y)
                 if self.loss_name is 'MutilFocalLoss':
@@ -334,7 +334,7 @@ class MutilResNet2dModel(object):
                     # send the input to the device
                     (x, y) = (x.to(self.device), y.to(self.device))
                     # make the predictions and calculate the validation loss
-                    pred_logit, pred = self.model(x)
+                    pred = self.model(x)
                     if self.loss_name is 'MutilCrossEntropyLoss':
                         loss = lossFunc(pred, y)
                     if self.loss_name is 'MutilFocalLoss':
@@ -626,7 +626,7 @@ class MutilResNet3dModel(object):
         self.image_channel = image_channel
         self.numclass = numclass
 
-        self.alpha = [1. / self.numclass] * self.numclass
+        self.alpha = [1.] * self.numclass
         self.gamma = 2
 
         self.use_cuda = use_cuda
@@ -634,7 +634,7 @@ class MutilResNet3dModel(object):
 
         self.model = ResNet3d(self.image_channel, self.numclass)
         self.model.to(device=self.device)
-
+        self.alpha = torch.as_tensor(self.alpha).contiguous().to(self.device)
         if inference:
             print(f'Loading model {model_path}')
             print(f'Using device {self.device}')

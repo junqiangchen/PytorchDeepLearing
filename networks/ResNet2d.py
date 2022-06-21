@@ -102,22 +102,23 @@ class GlobalAveragePooling(nn.Module):
 
 
 class FullConnecting(nn.Module):
-    def __init__(self, inChans, outChans, active='relu'):
+    def __init__(self, inChans, outChans, device, active='relu'):
         super(FullConnecting, self).__init__()
         self.inChans = inChans
         self.outChans = outChans
         self.activefunction = active
+        self.device = device
 
     def forward(self, x):
-        fc = nn.Linear(self.inChans, self.outChans)(x)
+        fc = nn.Linear(self.inChans, self.outChans).to(self.device)
         if self.activefunction is 'relu':
-            out = torch.relu(fc)
+            out = torch.relu(fc(x))
         if self.activefunction is 'softmax':
-            out = torch.softmax(fc, dim=1)
+            out = torch.softmax(fc(x), dim=1)
         if self.activefunction is 'sigmoid':
-            out = torch.sigmoid(fc)
+            out = torch.sigmoid(fc(x))
         if self.activefunction is 'None':
-            out = fc
+            out = fc(x)
         return out
 
 
@@ -128,10 +129,11 @@ class ResNet2d(nn.Module):
 
     # the number of convolutions in each layer corresponds
     # to what is in the actual prototxt, not the intent
-    def __init__(self, image_channel, numclass, elu=True):
+    def __init__(self, image_channel, numclass, device, elu=True):
         super(ResNet2d, self).__init__()
         self.image_channel = image_channel
         self.numclass = numclass
+        self.device = device
 
         self.in_tr = InputTransition2d(self.image_channel, 16, elu)
 
@@ -142,9 +144,9 @@ class ResNet2d(nn.Module):
 
         self.avg = GlobalAveragePooling()
 
-        self.fc1 = FullConnecting(256, 512, 'relu')
+        self.fc1 = FullConnecting(256, 512, self.device, 'relu')
         self.dropout = nn.Dropout2d(0.5)
-        self.fc2 = FullConnecting(512, numclass, 'softmax')
+        self.fc2 = FullConnecting(512, numclass, self.device, 'softmax')
 
     def forward(self, x):
         # print("x.shape:", x.shape)

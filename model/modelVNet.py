@@ -15,6 +15,8 @@ from pathlib import Path
 import time
 import os
 import cv2
+from dataprocess.utils import resize_image_itkwithsize, ConvertitkTrunctedValue
+import SimpleITK as sitk
 
 
 class BinaryVNet2dModel(object):
@@ -217,7 +219,7 @@ class BinaryVNet2dModel(object):
         else:
             out_mask = np.argmax(full_mask_np, axis=0)
             out_mask = np.squeeze(out_mask)
-        return out_mask
+        return out_mask.astype(np.uint8)
 
     def inference(self, image):
         # resize image and normalization
@@ -443,7 +445,7 @@ class MutilVNet2dModel(object):
         else:
             out_mask = np.argmax(full_mask_np, axis=0)
             out_mask = np.squeeze(out_mask)
-        return out_mask
+        return out_mask.astype(np.uint8)
 
     def inference(self, image):
         # resize image and normalization
@@ -666,18 +668,29 @@ class BinaryVNet3dModel(object):
         else:
             out_mask = np.argmax(full_mask_np, axis=0)
             out_mask = np.squeeze(out_mask)
-        return out_mask
+        return out_mask.astype(np.uint8)
 
-    def inference(self, image):
+    def inference(self, imagesitk, newSize=(96, 96, 96)):
         # resize image and normalization,should rewrite
-        imageresize = image
+        _, resizeimagesitk = resize_image_itkwithsize(imagesitk, newSize, imagesitk.GetSize(), sitk.sitkLinear)
+        resizeimagesitk = ConvertitkTrunctedValue(resizeimagesitk, 100, -100, 'meanstd')
+        imageresize = sitk.GetArrayFromImage(resizeimagesitk)
         # transpose (D,H,W,C) order to (C,D,H,W) order
         D, H, W = np.shape(imageresize)[0], np.shape(imageresize)[1], np.shape(imageresize)[2]
         imageresize = np.reshape(imageresize, (D, H, W, 1))
         imageresize = np.transpose(imageresize, (3, 0, 1, 2))
         out_mask = self.predict(imageresize)
         # resize mask to src image size,should rewrite
-        return out_mask
+        out_mask_sitk = sitk.GetImageFromArray(out_mask)
+        out_mask_sitk.SetOrigin(resizeimagesitk.GetOrigin())
+        out_mask_sitk.SetSpacing(resizeimagesitk.GetSpacing())
+        out_mask_sitk.SetDirection(resizeimagesitk.GetDirection())
+        _, final_out_mask_sitk = resize_image_itkwithsize(out_mask_sitk, imagesitk.GetSize(), newSize,
+                                                          sitk.sitkNearestNeighbor)
+        final_out_mask_sitk.SetOrigin(imagesitk.GetOrigin())
+        final_out_mask_sitk.SetSpacing(imagesitk.GetSpacing())
+        final_out_mask_sitk.SetDirection(imagesitk.GetDirection())
+        return final_out_mask_sitk
 
     def clear_GPU_cache(self):
         torch.cuda.empty_cache()
@@ -895,18 +908,29 @@ class MutilVNet3dModel(object):
         else:
             out_mask = np.argmax(full_mask_np, axis=0)
             out_mask = np.squeeze(out_mask)
-        return out_mask
+        return out_mask.astype(np.uint8)
 
-    def inference(self, image):
+    def inference(self, imagesitk, newSize=(96, 96, 96)):
         # resize image and normalization,should rewrite
-        imageresize = image
+        _, resizeimagesitk = resize_image_itkwithsize(imagesitk, newSize, imagesitk.GetSize(), sitk.sitkLinear)
+        resizeimagesitk = ConvertitkTrunctedValue(resizeimagesitk, 100, -100, 'meanstd')
+        imageresize = sitk.GetArrayFromImage(resizeimagesitk)
         # transpose (D,H,W,C) order to (C,D,H,W) order
         D, H, W = np.shape(imageresize)[0], np.shape(imageresize)[1], np.shape(imageresize)[2]
         imageresize = np.reshape(imageresize, (D, H, W, 1))
         imageresize = np.transpose(imageresize, (3, 0, 1, 2))
         out_mask = self.predict(imageresize)
-        # resize mask to src image size,shou rewrite
-        return out_mask
+        # resize mask to src image size,should rewrite
+        out_mask_sitk = sitk.GetImageFromArray(out_mask)
+        out_mask_sitk.SetOrigin(resizeimagesitk.GetOrigin())
+        out_mask_sitk.SetSpacing(resizeimagesitk.GetSpacing())
+        out_mask_sitk.SetDirection(resizeimagesitk.GetDirection())
+        _, final_out_mask_sitk = resize_image_itkwithsize(out_mask_sitk, imagesitk.GetSize(), newSize,
+                                                          sitk.sitkNearestNeighbor)
+        final_out_mask_sitk.SetOrigin(imagesitk.GetOrigin())
+        final_out_mask_sitk.SetSpacing(imagesitk.GetSpacing())
+        final_out_mask_sitk.SetDirection(imagesitk.GetDirection())
+        return final_out_mask_sitk
 
     def clear_GPU_cache(self):
         torch.cuda.empty_cache()
