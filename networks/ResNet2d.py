@@ -1,6 +1,6 @@
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch
 
 
 def passthrough(x, **kwargs):
@@ -101,27 +101,6 @@ class GlobalAveragePooling(nn.Module):
         return x
 
 
-class FullConnecting(nn.Module):
-    def __init__(self, inChans, outChans, device, active='relu'):
-        super(FullConnecting, self).__init__()
-        self.inChans = inChans
-        self.outChans = outChans
-        self.activefunction = active
-        self.device = device
-
-    def forward(self, x):
-        fc = nn.Linear(self.inChans, self.outChans).to(self.device)
-        if self.activefunction is 'relu':
-            out = torch.relu(fc(x))
-        if self.activefunction is 'softmax':
-            out = torch.softmax(fc(x), dim=1)
-        if self.activefunction is 'sigmoid':
-            out = torch.sigmoid(fc(x))
-        if self.activefunction is 'None':
-            out = fc(x)
-        return out
-
-
 class ResNet2d(nn.Module):
     """
     ResNet2d implement
@@ -129,11 +108,10 @@ class ResNet2d(nn.Module):
 
     # the number of convolutions in each layer corresponds
     # to what is in the actual prototxt, not the intent
-    def __init__(self, image_channel, numclass, device, elu=True):
+    def __init__(self, image_channel, numclass, elu=True):
         super(ResNet2d, self).__init__()
         self.image_channel = image_channel
         self.numclass = numclass
-        self.device = device
 
         self.in_tr = InputTransition2d(self.image_channel, 16, elu)
 
@@ -144,9 +122,9 @@ class ResNet2d(nn.Module):
 
         self.avg = GlobalAveragePooling()
 
-        self.fc1 = FullConnecting(256, 512, self.device, 'relu')
-        self.dropout = nn.Dropout2d(0.5)
-        self.fc2 = FullConnecting(512, numclass, self.device, 'softmax')
+        self.fc_layers = nn.Sequential(
+            nn.Linear(256, 128), nn.ReLU(inplace=True), nn.Dropout(),
+            nn.Linear(128, self.numclass))
 
     def forward(self, x):
         # print("x.shape:", x.shape)
@@ -166,9 +144,6 @@ class ResNet2d(nn.Module):
         # print("x.shape", x.shape) # 1, 256, 8, 8
         x = self.avg(x)
         # print("x.shape", x.shape) # 1, 256
-        x = self.fc1(x)
-        # print("x.shape", x.shape) # 1, 512
-        x = self.dropout(x)
-        x = self.fc2(x)
+        x = self.fc_layers(x)
         # print("x.shape", x.shape) # 1, numclass
         return x

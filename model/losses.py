@@ -115,21 +115,7 @@ class MutilCrossEntropyLoss(nn.Module):
 
     def forward(self, y_pred, y_true):
         assert y_pred.size() == y_true.size()
-        # torch version
-        # ce = F.cross_entropy(y_pred.float(), y_true.float(), weight=self.alpha)
-        # write version
-        Batchsize, Channel = y_pred.shape[0], y_pred.shape[1]
-        y_pred = y_pred.float().contiguous().view(Batchsize, Channel, -1)
-        y_true = y_true.float().contiguous().view(Batchsize, Channel, -1)
-        epsilon = 1.e-5
-        # scale preds so that the class probas of each sample sum to 1
-        output = y_pred / torch.sum(y_pred, dim=1, keepdim=True)
-        # manual computation of crossentropy
-        output = torch.clamp(output, epsilon, 1. - epsilon)
-        loss = - y_true * torch.log(output)
-        loss = torch.sum(loss, dim=-1)
-        loss = torch.mean(loss, dim=0)
-        loss = torch.mean(self.alpha * loss)
+        loss = F.cross_entropy(y_pred.float(), y_true.float(), weight=self.alpha)
         return loss
 
 
@@ -137,34 +123,36 @@ class MutilFocalLoss(nn.Module):
     """
     """
 
-    def __init__(self, alpha, gamma=2):
+    def __init__(self, alpha, gamma=2, torch=True):
         super(MutilFocalLoss, self).__init__()
         self.gamma = gamma
         self.alpha = alpha
-        self.CE_loss = nn.CrossEntropyLoss(reduction='none', weight=self.alpha)
+        self.torch = torch
 
     def forward(self, y_pred, y_true):
-        # not work
-        # logpt = self.CE_loss(y_pred.float(), y_true.float())
-        # pt = torch.exp(-logpt)
-        # loss = (((1 - pt) ** self.gamma) * logpt).mean()
-
-        # write version
-        Batchsize, Channel = y_pred.shape[0], y_pred.shape[1]
-        y_pred = y_pred.float().contiguous().view(Batchsize, Channel, -1)
-        y_true = y_true.float().contiguous().view(Batchsize, Channel, -1)
-        epsilon = 1.e-5
-        # scale preds so that the class probas of each sample sum to 1
-        y_pred = y_pred / torch.sum(y_pred, dim=1, keepdim=True)
-        # manual computation of crossentropy
-        y_pred = torch.clamp(y_pred, epsilon, 1. - epsilon)
-        celoss = - y_true * torch.log(y_pred)
-        # manual computation of focal loss
-        loss = torch.pow(1 - y_pred, self.gamma) * celoss
-        loss = torch.sum(loss, dim=-1)
-        loss = torch.mean(loss, dim=0)
-        loss = torch.mean(self.alpha * loss)
-        return loss.mean()
+        if torch:
+            CE_loss = nn.CrossEntropyLoss(reduction='none', weight=self.alpha)
+            logpt = CE_loss(y_pred.float(), y_true.float())
+            pt = torch.exp(-logpt)
+            loss = (((1 - pt) ** self.gamma) * logpt).mean()
+        else:
+            # not work
+            # write version
+            Batchsize, Channel = y_pred.shape[0], y_pred.shape[1]
+            y_pred = y_pred.float().contiguous().view(Batchsize, Channel, -1)
+            y_true = y_true.float().contiguous().view(Batchsize, Channel, -1)
+            epsilon = 1.e-5
+            # scale preds so that the class probas of each sample sum to 1
+            y_pred = y_pred / torch.sum(y_pred, dim=1, keepdim=True)
+            # manual computation of crossentropy
+            y_pred = torch.clamp(y_pred, epsilon, 1. - epsilon)
+            celoss = - y_true * torch.log(y_pred)
+            # manual computation of focal loss
+            loss = torch.pow(1 - y_pred, self.gamma) * celoss
+            loss = torch.sum(loss, dim=-1)
+            loss = torch.mean(loss, dim=0)
+            loss = torch.mean(self.alpha * loss)
+        return loss
 
 
 class MutilDiceLoss(nn.Module):

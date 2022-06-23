@@ -17,6 +17,9 @@ import os
 import cv2
 from dataprocess.utils import resize_image_itkwithsize, ConvertitkTrunctedValue
 import SimpleITK as sitk
+import multiprocessing
+from torchsummary import summary
+from torch.utils.tensorboard import SummaryWriter
 
 
 class BinaryUNet2dModel(object):
@@ -53,10 +56,14 @@ class BinaryUNet2dModel(object):
         """"
         train dataset shuffle is true,validation is false
         """
+        # Number of workers
         dataset = datasetModelSegwithopencv(images, labels,
                                             targetsize=(self.image_channel, self.image_height, self.image_width))
         # fow window num_workers is only zero,for linux num_workers can not zero
-        dataloader = DataLoader(dataset, shuffle=shuffle, batch_size=self.batch_size, num_workers=0)
+        # num_cpu = multiprocessing.cpu_count()
+        num_cpu = 0
+        dataloader = DataLoader(dataset, shuffle=shuffle, batch_size=self.batch_size, num_workers=num_cpu,
+                                pin_memory=True)
         return dataloader
 
     def _loss_function(self, lossname):
@@ -85,6 +92,8 @@ class BinaryUNet2dModel(object):
         print("[INFO] training the network...")
         Path(model_dir).mkdir(parents=True, exist_ok=True)
         MODEL_PATH = os.path.join(model_dir, "BinaryUNet2d.pth")
+        summary(self.model, input_size=(self.image_channel, self.image_height, self.image_width))
+        print(self.model)
         showpixelvalue = 255.
         if self.numclass > 1:
             showpixelvalue = showpixelvalue // (self.numclass - 1)
@@ -99,6 +108,8 @@ class BinaryUNet2dModel(object):
         # 4、start loop training wiht epochs times
         startTime = time.time()
         best_validation_dsc = 0.0
+        # Tensorboard summary
+        writer = SummaryWriter(log_dir=model_dir)
         for e in tqdm(range(epochs)):
             # 4.1、set the model in training mode
             self.model.train()
@@ -183,6 +194,12 @@ class BinaryUNet2dModel(object):
             print("[INFO] EPOCH: {}/{}".format(e + 1, epochs))
             print("Train loss: {:.5f}, Train accu: {:.5f}，validation loss: {:.5f}, validation accu: {:.5f}".format(
                 avgTrainLoss, avgTrainAccu, avgValidationLoss, avgValidationAccu))
+            # Record training loss and accuracy for each phase
+            writer.add_scalar('Train/Loss', avgTrainLoss, e + 1)
+            writer.add_scalar('Train/accu', avgTrainAccu, e + 1)
+            writer.add_scalar('Valid/loss', avgValidationLoss, e + 1)
+            writer.add_scalar('Valid/accu', avgValidationAccu, e + 1)
+            writer.flush()
             # 4.8、save best_validation_dsc model params
             if avgValidationAccu > best_validation_dsc:
                 best_validation_dsc = avgValidationAccu
@@ -275,7 +292,10 @@ class MutilUNet2dModel(object):
         dataset = datasetModelSegwithopencv(images, labels,
                                             targetsize=(self.image_channel, self.image_height, self.image_width))
         # fow window num_workers is only zero,for linux num_workers can not zero
-        dataloader = DataLoader(dataset, shuffle=shuffle, batch_size=self.batch_size, num_workers=0)
+        # num_cpu = multiprocessing.cpu_count()
+        num_cpu = 0
+        dataloader = DataLoader(dataset, shuffle=shuffle, batch_size=self.batch_size, num_workers=num_cpu,
+                                pin_memory=True)
         return dataloader
 
     def _loss_function(self, lossname):
@@ -303,6 +323,8 @@ class MutilUNet2dModel(object):
         print("[INFO] training the network...")
         Path(model_dir).mkdir(parents=True, exist_ok=True)
         MODEL_PATH = os.path.join(model_dir, "MutilUNet2d.pth")
+        summary(self.model, input_size=(self.image_channel, self.image_height, self.image_width))
+        print(self.model)
         showpixelvalue = 255.
         if self.numclass > 1:
             showpixelvalue = showpixelvalue // (self.numclass - 1)
@@ -317,6 +339,8 @@ class MutilUNet2dModel(object):
         # 4、start loop training wiht epochs times
         startTime = time.time()
         best_validation_dsc = 0.0
+        # Tensorboard summary
+        writer = SummaryWriter(log_dir=model_dir)
         for e in tqdm(range(epochs)):
             # 4.1、set the model in training mode
             self.model.train()
@@ -344,11 +368,11 @@ class MutilUNet2dModel(object):
                 # perform a forward pass and calculate the training loss and accu
                 pred_logit, pred = self.model(x)
                 if self.loss_name is 'MutilCrossEntropyLoss':
-                    loss = lossFunc(pred, y)
+                    loss = lossFunc(pred_logit, y)
                 if self.loss_name is 'MutilDiceLoss':
                     loss = lossFunc(pred, y)
                 if self.loss_name is 'MutilFocalLoss':
-                    loss = lossFunc(pred, y)
+                    loss = lossFunc(pred_logit, y)
                 accu = self._accuracy_function(self.accuracyname, pred, y)
                 savepath = model_dir + '/' + str(e + 1) + "_Train_EPOCH_"
                 save_images2d(torch.argmax(pred[0], 0), torch.argmax(y[0], 0), savepath, pixelvalue=showpixelvalue)
@@ -383,11 +407,11 @@ class MutilUNet2dModel(object):
                     # make the predictions and calculate the validation loss
                     pred_logit, pred = self.model(x)
                     if self.loss_name is 'MutilCrossEntropyLoss':
-                        loss = lossFunc(pred, y)
+                        loss = lossFunc(pred_logit, y)
                     if self.loss_name is 'MutilDiceLoss':
                         loss = lossFunc(pred, y)
                     if self.loss_name is 'MutilFocalLoss':
-                        loss = lossFunc(pred, y)
+                        loss = lossFunc(pred_logit, y)
                     # save_images
                     accu = self._accuracy_function(self.accuracyname, pred, y)
                     savepath = model_dir + '/' + str(e + 1) + "_Val_EPOCH_"
@@ -408,6 +432,12 @@ class MutilUNet2dModel(object):
             print("[INFO] EPOCH: {}/{}".format(e + 1, epochs))
             print("Train loss: {:.5f}, Train accu: {:.5f}，validation loss: {:.5f}, validation accu: {:.5f}".format(
                 avgTrainLoss, avgTrainAccu, avgValidationLoss, avgValidationAccu))
+            # Record training loss and accuracy for each phase
+            writer.add_scalar('Train/Loss', avgTrainLoss, e + 1)
+            writer.add_scalar('Train/accu', avgTrainAccu, e + 1)
+            writer.add_scalar('Valid/loss', avgValidationLoss, e + 1)
+            writer.add_scalar('Valid/accu', avgValidationAccu, e + 1)
+            writer.flush()
             # 4.8、save best_validation_dsc model params
             if avgValidationAccu > best_validation_dsc:
                 best_validation_dsc = avgValidationAccu
@@ -503,7 +533,10 @@ class BinaryUNet3dModel(object):
                                          targetsize=(
                                              self.image_channel, self.image_depth, self.image_height, self.image_width))
         # fow window num_workers is only zero,for linux num_workers can not zero
-        dataloader = DataLoader(dataset, shuffle=shuffle, batch_size=self.batch_size, num_workers=0)
+        # num_cpu = multiprocessing.cpu_count()
+        num_cpu = 0
+        dataloader = DataLoader(dataset, shuffle=shuffle, batch_size=self.batch_size, num_workers=num_cpu,
+                                pin_memory=True)
         return dataloader
 
     def _loss_function(self, lossname):
@@ -533,6 +566,8 @@ class BinaryUNet3dModel(object):
         print("[INFO] training the network...")
         Path(model_dir).mkdir(parents=True, exist_ok=True)
         MODEL_PATH = os.path.join(model_dir, "BinaryUNet3d.pth")
+        summary(self.model, input_size=(self.image_channel, self.image_depth, self.image_height, self.image_width))
+        print(self.model)
         showpixelvalue = 255.
         if self.numclass > 1:
             showpixelvalue = showpixelvalue // (self.numclass - 1)
@@ -547,6 +582,8 @@ class BinaryUNet3dModel(object):
         # 4、start loop training wiht epochs times
         startTime = time.time()
         best_validation_dsc = 0.0
+        # Tensorboard summary
+        writer = SummaryWriter(log_dir=model_dir)
         for e in tqdm(range(epochs)):
             # 4.1、set the model in training mode
             self.model.train()
@@ -631,6 +668,12 @@ class BinaryUNet3dModel(object):
             print("[INFO] EPOCH: {}/{}".format(e + 1, epochs))
             print("Train loss: {:.5f}, Train accu: {:.5f}，validation loss: {:.5f}, validation accu: {:.5f}".format(
                 avgTrainLoss, avgTrainAccu, avgValidationLoss, avgValidationAccu))
+            # Record training loss and accuracy for each phase
+            writer.add_scalar('Train/Loss', avgTrainLoss, e + 1)
+            writer.add_scalar('Train/accu', avgTrainAccu, e + 1)
+            writer.add_scalar('Valid/loss', avgValidationLoss, e + 1)
+            writer.add_scalar('Valid/accu', avgValidationAccu, e + 1)
+            writer.flush()
             # 4.8、save best_validation_dsc model params
             if avgValidationAccu > best_validation_dsc:
                 best_validation_dsc = avgValidationAccu
@@ -713,7 +756,7 @@ class MutilUNet3dModel(object):
         self.numclass = numclass
 
         self.alpha = [1.] * self.numclass
-        self.gamma = 2
+        self.gamma = 4
 
         self.use_cuda = use_cuda
         self.device = torch.device('cuda' if self.use_cuda else 'cpu')
@@ -735,7 +778,10 @@ class MutilUNet3dModel(object):
                                          targetsize=(
                                              self.image_channel, self.image_depth, self.image_height, self.image_width))
         # fow window num_workers is only zero,for linux num_workers can not zero
-        dataloader = DataLoader(dataset, shuffle=shuffle, batch_size=self.batch_size, num_workers=0)
+        # num_cpu = multiprocessing.cpu_count()
+        num_cpu = 0
+        dataloader = DataLoader(dataset, shuffle=shuffle, batch_size=self.batch_size, num_workers=num_cpu,
+                                pin_memory=True)
         return dataloader
 
     def _loss_function(self, lossname):
@@ -764,6 +810,8 @@ class MutilUNet3dModel(object):
         print("[INFO] training the network...")
         Path(model_dir).mkdir(parents=True, exist_ok=True)
         MODEL_PATH = os.path.join(model_dir, "MutilUNet3d.pth")
+        summary(self.model, input_size=(self.image_channel, self.image_depth, self.image_height, self.image_width))
+        print(self.model)
         showpixelvalue = 255.
         if self.numclass > 1:
             showpixelvalue = showpixelvalue // (self.numclass - 1)
@@ -778,6 +826,8 @@ class MutilUNet3dModel(object):
         # 4、start loop training wiht epochs times
         startTime = time.time()
         best_validation_dsc = 0.0
+        # Tensorboard summary
+        writer = SummaryWriter(log_dir=model_dir)
         for e in tqdm(range(epochs)):
             # 4.1、set the model in training mode
             self.model.train()
@@ -805,11 +855,11 @@ class MutilUNet3dModel(object):
                 # perform a forward pass and calculate the training loss and accu
                 pred_logit, pred = self.model(x)
                 if self.loss_name is 'MutilCrossEntropyLoss':
-                    loss = lossFunc(pred, y)
+                    loss = lossFunc(pred_logit, y)
                 if self.loss_name is 'MutilDiceLoss':
                     loss = lossFunc(pred, y)
                 if self.loss_name is 'MutilFocalLoss':
-                    loss = lossFunc(pred, y)
+                    loss = lossFunc(pred_logit, y)
                 accu = self._accuracy_function(self.accuracyname, pred, y)
                 savepath = model_dir + '/' + str(e + 1) + "_Train_EPOCH_"
                 save_images3d(torch.argmax(pred[0], 0), torch.argmax(y[0], 0), showwind, savepath,
@@ -845,11 +895,11 @@ class MutilUNet3dModel(object):
                     # make the predictions and calculate the validation loss
                     pred_logit, pred = self.model(x)
                     if self.loss_name is 'MutilCrossEntropyLoss':
-                        loss = lossFunc(pred, y)
+                        loss = lossFunc(pred_logit, y)
                     if self.loss_name is 'MutilDiceLoss':
                         loss = lossFunc(pred, y)
                     if self.loss_name is 'MutilFocalLoss':
-                        loss = lossFunc(pred, y)
+                        loss = lossFunc(pred_logit, y)
                     # save_images
                     accu = self._accuracy_function(self.accuracyname, pred, y)
                     savepath = model_dir + '/' + str(e + 1) + "_Val_EPOCH_"
@@ -871,6 +921,12 @@ class MutilUNet3dModel(object):
             print("[INFO] EPOCH: {}/{}".format(e + 1, epochs))
             print("Train loss: {:.5f}, Train accu: {:.5f}，validation loss: {:.5f}, validation accu: {:.5f}".format(
                 avgTrainLoss, avgTrainAccu, avgValidationLoss, avgValidationAccu))
+            # Record training loss and accuracy for each phase
+            writer.add_scalar('Train/Loss', avgTrainLoss, e + 1)
+            writer.add_scalar('Train/accu', avgTrainAccu, e + 1)
+            writer.add_scalar('Valid/loss', avgValidationLoss, e + 1)
+            writer.add_scalar('Valid/accu', avgValidationAccu, e + 1)
+            writer.flush()
             # 4.8、save best_validation_dsc model params
             if avgValidationAccu > best_validation_dsc:
                 best_validation_dsc = avgValidationAccu

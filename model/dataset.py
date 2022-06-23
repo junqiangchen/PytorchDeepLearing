@@ -7,7 +7,7 @@ from torch.utils.data import Dataset
 # define datasetModelClassifywithnpy class wiht npy
 class datasetModelClassifywithnpy(Dataset):
     def __init__(self, images, labels, targetsize=(1, 64, 128, 128)):
-        super(datasetModelSegwithnpy).__init__()
+        super(datasetModelClassifywithnpy).__init__()
 
         self.labels = labels
         self.images = images
@@ -30,18 +30,18 @@ class datasetModelClassifywithnpy(Dataset):
         image = np.transpose(image, (3, 0, 1, 2))
         assert image.shape[0] == self.targetsize[0] and image.shape[1] == self.targetsize[1] and image.shape[2] == \
                self.targetsize[2] and image.shape[3] == self.targetsize[3]
-        images_tensor = torch.as_tensor(image).float().contiguous()  # transform ndarray to tensor
+        images_tensor = torch.as_tensor(image).float()  # transform ndarray to tensor
         # torch.set_printoptions(8)
         label = self.labels[index]
         label = int(label)
-        label_tensor = torch.as_tensor(label).long().contiguous()
+        label_tensor = torch.as_tensor(label).long()
         return {'image': images_tensor, 'label': label_tensor}
 
 
 # define datasetModelClassifywithopencv class with npy
 class datasetModelClassifywithopencv(Dataset):
     def __init__(self, images, labels, targetsize=(1, 512, 512)):
-        super(datasetModelSegwithopencv).__init__()
+        super(datasetModelClassifywithopencv).__init__()
 
         self.labels = labels
         self.images = images
@@ -70,11 +70,11 @@ class datasetModelClassifywithopencv(Dataset):
         assert image.shape[0] == self.targetsize[0] and image.shape[1] == self.targetsize[1] and image.shape[2] == \
                self.targetsize[2]
         # convert numpy to tensor
-        images_tensor = torch.as_tensor(image).float().contiguous()  # transform ndarray to tensor
+        images_tensor = torch.as_tensor(image).float()  # transform ndarray to tensor
         # torch.set_printoptions(8)
         label = self.labels[index]
         label = int(label)
-        label_tensor = torch.as_tensor(label).long().contiguous()
+        label_tensor = torch.as_tensor(label).long()
         return {'image': images_tensor, 'label': label_tensor}
 
 
@@ -104,7 +104,7 @@ class datasetModelSegwithnpy(Dataset):
         image = np.transpose(image, (3, 0, 1, 2))
         assert image.shape[0] == self.targetsize[0] and image.shape[1] == self.targetsize[1] and image.shape[2] == \
                self.targetsize[2] and image.shape[3] == self.targetsize[3]
-        images_tensor = torch.as_tensor(image).float().contiguous()  # transform ndarray to tensor
+        images_tensor = torch.as_tensor(image).float()  # transform ndarray to tensor
         # torch.set_printoptions(8)
         labelpath = self.labels[index]
         label = np.load(labelpath)
@@ -112,7 +112,7 @@ class datasetModelSegwithnpy(Dataset):
         D, H, W = np.shape(label)[0], np.shape(label)[1], np.shape(label)[2]
         label = np.reshape(label, (D, H, W, 1))
         label = np.transpose(label, (3, 0, 1, 2))
-        label_tensor = torch.as_tensor(label).long().contiguous()
+        label_tensor = torch.as_tensor(label).long()
         return {'image': images_tensor, 'label': label_tensor}
 
 
@@ -148,7 +148,7 @@ class datasetModelSegwithopencv(Dataset):
         assert image.shape[0] == self.targetsize[0] and image.shape[1] == self.targetsize[1] and image.shape[2] == \
                self.targetsize[2]
         # convert numpy to tensor
-        images_tensor = torch.as_tensor(image).float().contiguous()  # transform ndarray to tensor
+        images_tensor = torch.as_tensor(image).float()  # transform ndarray to tensor
         # torch.set_printoptions(8)
         labelpath = self.labels[index]
         label = cv2.imread(labelpath, 0)
@@ -157,5 +157,5 @@ class datasetModelSegwithopencv(Dataset):
         # transpose (H,W,C) order to (C,H,W) order
         label = np.reshape(label, (H, W, 1))
         label = np.transpose(label, (2, 0, 1))
-        label_tensor = torch.as_tensor(label).long().contiguous()
+        label_tensor = torch.as_tensor(label).long()
         return {'image': images_tensor, 'label': label_tensor}

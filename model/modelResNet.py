@@ -14,6 +14,9 @@ from pathlib import Path
 import time
 import os
 import cv2
+import multiprocessing
+from torchsummary import summary
+from torch.utils.tensorboard import SummaryWriter
 
 
 class BinaryResNet2dModel(object):
@@ -50,10 +53,14 @@ class BinaryResNet2dModel(object):
         """"
         train dataset shuffle is true,validation is false
         """
+        # Number of workers
         dataset = datasetModelClassifywithopencv(images, labels,
                                                  targetsize=(self.image_channel, self.image_height, self.image_width))
         # fow window num_workers is only zero,for linux num_workers can not zero
-        dataloader = DataLoader(dataset, shuffle=shuffle, batch_size=self.batch_size, num_workers=0)
+        # num_cpu = multiprocessing.cpu_count()
+        num_cpu = 0
+        dataloader = DataLoader(dataset, shuffle=shuffle, batch_size=self.batch_size, num_workers=num_cpu,
+                                pin_memory=True)
         return dataloader
 
     def _loss_function(self, lossname):
@@ -77,6 +84,8 @@ class BinaryResNet2dModel(object):
         print("[INFO] training the network...")
         Path(model_dir).mkdir(parents=True, exist_ok=True)
         MODEL_PATH = os.path.join(model_dir, "BinaryResNet2d.pth")
+        summary(self.model, input_size=(self.image_channel, self.image_height, self.image_width))
+        print(self.model)
         # 1、initialize loss function and optimizer
         lossFunc = self._loss_function(self.loss_name)
         opt = optim.Adam(self.model.parameters(), lr=lr)
@@ -88,6 +97,8 @@ class BinaryResNet2dModel(object):
         # 4、start loop training wiht epochs times
         startTime = time.time()
         best_validation_dsc = 0.0
+        # Tensorboard summary
+        writer = SummaryWriter(log_dir=model_dir)
         for e in tqdm(range(epochs)):
             # 4.1、set the model in training mode
             self.model.train()
@@ -106,11 +117,12 @@ class BinaryResNet2dModel(object):
                 # send the input to the device
                 x, y = x.to(self.device), y.to(self.device)
                 # perform a forward pass and calculate the training loss and accu
-                pred_logit, pred = self.model(x)
+                pred_logit = self.model(x)
                 if self.loss_name is 'BinaryCrossEntropyLoss':
                     loss = lossFunc(pred_logit, y)
                 if self.loss_name is 'BinaryFocalLoss':
                     loss = lossFunc(pred_logit, y)
+                pred = F.sigmoid(pred_logit)
                 accu = self._accuracy_function(self.accuracyname, pred, y)
                 # first, zero out any previously accumulated gradients,
                 # then perform backpropagation,
@@ -134,11 +146,12 @@ class BinaryResNet2dModel(object):
                     # send the input to the device
                     (x, y) = (x.to(self.device), y.to(self.device))
                     # make the predictions and calculate the validation loss
-                    pred_logit, pred = self.model(x)
+                    pred_logit = self.model(x)
                     if self.loss_name is 'BinaryCrossEntropyLoss':
                         loss = lossFunc(pred_logit, y)
                     if self.loss_name is 'BinaryFocalLoss':
                         loss = lossFunc(pred_logit, y)
+                    pred = F.sigmoid(pred_logit)
                     accu = self._accuracy_function(self.accuracyname, pred, y)
                     totalValidationLoss.append(loss)
                     totalValiadtionAccu.append(accu)
@@ -156,6 +169,12 @@ class BinaryResNet2dModel(object):
             print("[INFO] EPOCH: {}/{}".format(e + 1, epochs))
             print("Train loss: {:.5f}, Train accu: {:.5f}，validation loss: {:.5f}, validation loss: {:.5f}".format(
                 avgTrainLoss, avgTrainAccu, avgValidationLoss, avgValidationAccu))
+            # Record training loss and accuracy for each phase
+            writer.add_scalar('Train/Loss', avgTrainLoss, e + 1)
+            writer.add_scalar('Train/accu', avgTrainAccu, e + 1)
+            writer.add_scalar('Valid/loss', avgValidationLoss, e + 1)
+            writer.add_scalar('Valid/accu', avgValidationAccu, e + 1)
+            writer.flush()
             # 4.8、save best_validation_dsc model params
             if avgValidationAccu > best_validation_dsc:
                 best_validation_dsc = avgValidationAccu
@@ -182,8 +201,11 @@ class BinaryResNet2dModel(object):
         img = img.to(device=self.device, dtype=torch.float32)
         # 4、predict result
         with torch.no_grad():
-            _, output = self.model(img)
-            probs = output[0]
+            output = self.model(img)
+            if self.numclass == 1:
+                probs = torch.sigmoid(output[0])
+            else:
+                probs = torch.softmax(output[0], dim=0)
             full_mask_np = probs.detach().cpu().squeeze().numpy()
         # 5、get numpy result
         if self.numclass == 1:
@@ -233,7 +255,7 @@ class MutilResNet2dModel(object):
         self.use_cuda = use_cuda
         self.device = torch.device('cuda' if self.use_cuda else 'cpu')
 
-        self.model = ResNet2d(self.image_channel, self.numclass, self.device)
+        self.model = ResNet2d(self.image_channel, self.numclass)
         self.model.to(device=self.device)
         self.alpha = torch.as_tensor(self.alpha).contiguous().to(self.device)
         if inference:
@@ -246,10 +268,14 @@ class MutilResNet2dModel(object):
         """"
         train dataset shuffle is true,validation is false
         """
+        # Number of workers
         dataset = datasetModelClassifywithopencv(images, labels,
                                                  targetsize=(self.image_channel, self.image_height, self.image_width))
         # fow window num_workers is only zero,for linux num_workers can not zero
-        dataloader = DataLoader(dataset, shuffle=shuffle, batch_size=self.batch_size, num_workers=0)
+        # num_cpu = multiprocessing.cpu_count()
+        num_cpu = 0
+        dataloader = DataLoader(dataset, shuffle=shuffle, batch_size=self.batch_size, num_workers=num_cpu,
+                                pin_memory=True)
         return dataloader
 
     def _loss_function(self, lossname):
@@ -273,6 +299,8 @@ class MutilResNet2dModel(object):
         print("[INFO] training the network...")
         Path(model_dir).mkdir(parents=True, exist_ok=True)
         MODEL_PATH = os.path.join(model_dir, "MutilResNet2d.pth")
+        summary(self.model, input_size=(self.image_channel, self.image_height, self.image_width))
+        print(self.model)
         # 1、initialize loss function and optimizer
         lossFunc = self._loss_function(self.loss_name)
         opt = optim.Adam(self.model.parameters(), lr=lr)
@@ -284,6 +312,8 @@ class MutilResNet2dModel(object):
         # 4、start loop training wiht epochs times
         startTime = time.time()
         best_validation_dsc = 0.0
+        # Tensorboard summary
+        writer = SummaryWriter(log_dir=model_dir)
         for e in tqdm(range(epochs)):
             # 4.1、set the model in training mode
             self.model.train()
@@ -304,18 +334,19 @@ class MutilResNet2dModel(object):
                 # send the input to the device
                 x, y = x.to(self.device), y.to(self.device)
                 # perform a forward pass and calculate the training loss and accu
-                pred = self.model(x)
+                pred_logits = self.model(x)
                 if self.loss_name is 'MutilCrossEntropyLoss':
-                    loss = lossFunc(pred, y)
+                    loss = lossFunc(pred_logits, y)
                 if self.loss_name is 'MutilFocalLoss':
-                    loss = lossFunc(pred, y)
-                accu = self._accuracy_function(self.accuracyname, pred, y)
+                    loss = lossFunc(pred_logits, y)
                 # first, zero out any previously accumulated gradients,
                 # then perform backpropagation,
                 # and then update model parameters
                 opt.zero_grad()
                 loss.backward()
                 opt.step()
+                pred = F.softmax(pred_logits, dim=1)
+                accu = self._accuracy_function(self.accuracyname, pred, y)
                 # add the loss to the total training loss so far
                 totalTrainLoss.append(loss)
                 totalTrainAccu.append(accu)
@@ -334,12 +365,13 @@ class MutilResNet2dModel(object):
                     # send the input to the device
                     (x, y) = (x.to(self.device), y.to(self.device))
                     # make the predictions and calculate the validation loss
-                    pred = self.model(x)
+                    pred_logits = self.model(x)
                     if self.loss_name is 'MutilCrossEntropyLoss':
-                        loss = lossFunc(pred, y)
+                        loss = lossFunc(pred_logits, y)
                     if self.loss_name is 'MutilFocalLoss':
-                        loss = lossFunc(pred, y)
+                        loss = lossFunc(pred_logits, y)
                     # save_images
+                    pred = F.softmax(pred_logits, dim=1)
                     accu = self._accuracy_function(self.accuracyname, pred, y)
                     totalValidationLoss.append(loss)
                     totalValiadtionAccu.append(accu)
@@ -355,8 +387,14 @@ class MutilResNet2dModel(object):
             H["valdation_accuracy"].append(avgValidationAccu.cpu().detach().numpy())
             # 4.7、print the model training and validation information
             print("[INFO] EPOCH: {}/{}".format(e + 1, epochs))
-            print("Train loss: {:.5f}, Train accu: {:.5f}，validation loss: {:.5f}, validation loss: {:.5f}".format(
+            print("Train loss: {:.5f}, Train accu: {:.5f}，validation loss: {:.5f}, validation accu: {:.5f}".format(
                 avgTrainLoss, avgTrainAccu, avgValidationLoss, avgValidationAccu))
+            # Record training loss and accuracy for each phase
+            writer.add_scalar('Train/Loss', avgTrainLoss, e + 1)
+            writer.add_scalar('Train/accu', avgTrainAccu, e + 1)
+            writer.add_scalar('Valid/loss', avgValidationLoss, e + 1)
+            writer.add_scalar('Valid/accu', avgValidationAccu, e + 1)
+            writer.flush()
             # 4.8、save best_validation_dsc model params
             if avgValidationAccu > best_validation_dsc:
                 best_validation_dsc = avgValidationAccu
@@ -383,8 +421,11 @@ class MutilResNet2dModel(object):
         img = img.to(device=self.device, dtype=torch.float32)
         # 4、predict result
         with torch.no_grad():
-            _, output = self.model(img)
-            probs = output[0]
+            output = self.model(img)
+            if self.numclass == 1:
+                probs = torch.sigmoid(output[0])
+            else:
+                probs = torch.softmax(output[0], dim=0)
             full_mask_np = probs.detach().cpu().squeeze().numpy()
         # 5、get numpy result
         if self.numclass == 1:
@@ -453,7 +494,10 @@ class BinaryResNet3dModel(object):
                                                   self.image_channel, self.image_depth, self.image_height,
                                                   self.image_width))
         # fow window num_workers is only zero,for linux num_workers can not zero
-        dataloader = DataLoader(dataset, shuffle=shuffle, batch_size=self.batch_size, num_workers=0)
+        # num_cpu = multiprocessing.cpu_count()
+        num_cpu = 0
+        dataloader = DataLoader(dataset, shuffle=shuffle, batch_size=self.batch_size, num_workers=num_cpu,
+                                pin_memory=True)
         return dataloader
 
     def _loss_function(self, lossname):
@@ -477,6 +521,8 @@ class BinaryResNet3dModel(object):
         print("[INFO] training the network...")
         Path(model_dir).mkdir(parents=True, exist_ok=True)
         MODEL_PATH = os.path.join(model_dir, "BinaryResNet3d.pth")
+        summary(self.model, input_size=(self.image_channel, self.image_depth, self.image_height, self.image_width))
+        print(self.model)
         # 1、initialize loss function and optimizer
         lossFunc = self._loss_function(self.loss_name)
         opt = optim.Adam(self.model.parameters(), lr=lr)
@@ -488,6 +534,8 @@ class BinaryResNet3dModel(object):
         # 4、start loop training wiht epochs times
         startTime = time.time()
         best_validation_dsc = 0.0
+        # Tensorboard summary
+        writer = SummaryWriter(log_dir=model_dir)
         for e in tqdm(range(epochs)):
             # 4.1、set the model in training mode
             self.model.train()
@@ -506,11 +554,12 @@ class BinaryResNet3dModel(object):
                 # send the input to the device
                 x, y = x.to(self.device), y.to(self.device)
                 # perform a forward pass and calculate the training loss and accu
-                pred_logit, pred = self.model(x)
+                pred_logit = self.model(x)
                 if self.loss_name is 'BinaryCrossEntropyLoss':
                     loss = lossFunc(pred_logit, y)
                 if self.loss_name is 'BinaryFocalLoss':
                     loss = lossFunc(pred_logit, y)
+                pred = F.sigmoid(pred_logit)
                 accu = self._accuracy_function(self.accuracyname, pred, y)
                 # first, zero out any previously accumulated gradients,
                 # then perform backpropagation,
@@ -534,11 +583,12 @@ class BinaryResNet3dModel(object):
                     # send the input to the device
                     (x, y) = (x.to(self.device), y.to(self.device))
                     # make the predictions and calculate the validation loss
-                    pred_logit, pred = self.model(x)
+                    pred_logit = self.model(x)
                     if self.loss_name is 'BinaryCrossEntropyLoss':
                         loss = lossFunc(pred_logit, y)
                     if self.loss_name is 'BinaryFocalLoss':
                         loss = lossFunc(pred_logit, y)
+                    pred = F.sigmoid(pred_logit)
                     accu = self._accuracy_function(self.accuracyname, pred, y)
                     totalValidationLoss.append(loss)
                     totalValiadtionAccu.append(accu)
@@ -556,6 +606,12 @@ class BinaryResNet3dModel(object):
             print("[INFO] EPOCH: {}/{}".format(e + 1, epochs))
             print("Train loss: {:.5f}, Train accu: {:.5f}，validation loss: {:.5f}, validation loss: {:.5f}".format(
                 avgTrainLoss, avgTrainAccu, avgValidationLoss, avgValidationAccu))
+            # Record training loss and accuracy for each phase
+            writer.add_scalar('Train/Loss', avgTrainLoss, e + 1)
+            writer.add_scalar('Train/accu', avgTrainAccu, e + 1)
+            writer.add_scalar('Valid/loss', avgValidationLoss, e + 1)
+            writer.add_scalar('Valid/accu', avgValidationAccu, e + 1)
+            writer.flush()
             # 4.8、save best_validation_dsc model params
             if avgValidationAccu > best_validation_dsc:
                 best_validation_dsc = avgValidationAccu
@@ -582,8 +638,11 @@ class BinaryResNet3dModel(object):
         img = img.to(device=self.device, dtype=torch.float32)
         # 4、predict result
         with torch.no_grad():
-            _, output = self.model(img)
-            probs = output[0]
+            output = self.model(img)
+            if self.numclass == 1:
+                probs = torch.sigmoid(output[0])
+            else:
+                probs = torch.softmax(output[0], dim=0)
             full_mask_np = probs.detach().cpu().squeeze().numpy()
         # 5、get numpy result
         if self.numclass == 1:
@@ -650,7 +709,10 @@ class MutilResNet3dModel(object):
                                                   self.image_channel, self.image_depth, self.image_height,
                                                   self.image_width))
         # fow window num_workers is only zero,for linux num_workers can not zero
-        dataloader = DataLoader(dataset, shuffle=shuffle, batch_size=self.batch_size, num_workers=0)
+        # num_cpu = multiprocessing.cpu_count()
+        num_cpu = 0
+        dataloader = DataLoader(dataset, shuffle=shuffle, batch_size=self.batch_size, num_workers=num_cpu,
+                                pin_memory=True)
         return dataloader
 
     def _loss_function(self, lossname):
@@ -674,6 +736,8 @@ class MutilResNet3dModel(object):
         print("[INFO] training the network...")
         Path(model_dir).mkdir(parents=True, exist_ok=True)
         MODEL_PATH = os.path.join(model_dir, "MutilResNet3d.pth")
+        summary(self.model, input_size=(self.image_channel, self.image_depth, self.image_height, self.image_width))
+        print(self.model)
         # 1、initialize loss function and optimizer
         lossFunc = self._loss_function(self.loss_name)
         opt = optim.Adam(self.model.parameters(), lr=lr)
@@ -685,6 +749,8 @@ class MutilResNet3dModel(object):
         # 4、start loop training wiht epochs times
         startTime = time.time()
         best_validation_dsc = 0.0
+        # Tensorboard summary
+        writer = SummaryWriter(log_dir=model_dir)
         for e in tqdm(range(epochs)):
             # 4.1、set the model in training mode
             self.model.train()
@@ -704,18 +770,19 @@ class MutilResNet3dModel(object):
                 # send the input to the device
                 x, y = x.to(self.device), y.to(self.device)
                 # perform a forward pass and calculate the training loss and accu
-                pred_logit, pred = self.model(x)
+                pred_logit = self.model(x)
                 if self.loss_name is 'MutilCrossEntropyLoss':
-                    loss = lossFunc(pred, y)
+                    loss = lossFunc(pred_logit, y)
                 if self.loss_name is 'MutilFocalLoss':
-                    loss = lossFunc(pred, y)
-                accu = self._accuracy_function(self.accuracyname, pred, y)
+                    loss = lossFunc(pred_logit, y)
                 # first, zero out any previously accumulated gradients,
                 # then perform backpropagation,
                 # and then update model parameters
                 opt.zero_grad()
                 loss.backward()
                 opt.step()
+                pred = F.softmax(pred_logit, dim=1)
+                accu = self._accuracy_function(self.accuracyname, pred, y)
                 # add the loss to the total training loss so far
                 totalTrainLoss.append(loss)
                 totalTrainAccu.append(accu)
@@ -733,11 +800,12 @@ class MutilResNet3dModel(object):
                     # send the input to the device
                     (x, y) = (x.to(self.device), y.to(self.device))
                     # make the predictions and calculate the validation loss
-                    pred_logit, pred = self.model(x)
+                    pred_logit = self.model(x)
                     if self.loss_name is 'MutilCrossEntropyLoss':
-                        loss = lossFunc(pred, y)
+                        loss = lossFunc(pred_logit, y)
                     if self.loss_name is 'MutilFocalLoss':
-                        loss = lossFunc(pred, y)
+                        loss = lossFunc(pred_logit, y)
+                    pred = F.softmax(pred_logit, dim=1)
                     accu = self._accuracy_function(self.accuracyname, pred, y)
                     totalValidationLoss.append(loss)
                     totalValiadtionAccu.append(accu)
@@ -755,6 +823,12 @@ class MutilResNet3dModel(object):
             print("[INFO] EPOCH: {}/{}".format(e + 1, epochs))
             print("Train loss: {:.5f}, Train accu: {:.5f}，validation loss: {:.5f}, validation loss: {:.5f}".format(
                 avgTrainLoss, avgTrainAccu, avgValidationLoss, avgValidationAccu))
+            # Record training loss and accuracy for each phase
+            writer.add_scalar('Train/Loss', avgTrainLoss, e + 1)
+            writer.add_scalar('Train/accu', avgTrainAccu, e + 1)
+            writer.add_scalar('Valid/loss', avgValidationLoss, e + 1)
+            writer.add_scalar('Valid/accu', avgValidationAccu, e + 1)
+            writer.flush()
             # 4.8、save best_validation_dsc model params
             if avgValidationAccu > best_validation_dsc:
                 best_validation_dsc = avgValidationAccu
@@ -781,8 +855,11 @@ class MutilResNet3dModel(object):
         img = img.to(device=self.device, dtype=torch.float32)
         # 4、predict result
         with torch.no_grad():
-            _, output = self.model(img)
-            probs = output[0]
+            output = self.model(img)
+            if self.numclass == 1:
+                probs = torch.sigmoid(output[0])
+            else:
+                probs = torch.softmax(output[0], dim=0)
             full_mask_np = probs.detach().cpu().squeeze().numpy()
         # 5、get numpy result
         if self.numclass == 1:

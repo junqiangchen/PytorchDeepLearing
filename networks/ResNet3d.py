@@ -101,26 +101,6 @@ class GlobalAveragePooling(nn.Module):
         return x
 
 
-class FullConnecting(nn.Module):
-    def __init__(self, inChans, outChans, active='relu'):
-        super(FullConnecting, self).__init__()
-        self.inChans = inChans
-        self.outChans = outChans
-        self.activefunction = active
-
-    def forward(self, x):
-        fc = nn.Linear(self.inChans, self.outChans)(x)
-        if self.activefunction is 'relu':
-            out = torch.relu(fc)
-        if self.activefunction is 'softmax':
-            out = torch.softmax(fc, dim=1)
-        if self.activefunction is 'sigmoid':
-            out = torch.sigmoid(fc)
-        if self.activefunction is 'None':
-            out = fc
-        return out
-
-
 class ResNet3d(nn.Module):
     """
     ResNet3d implement
@@ -142,9 +122,9 @@ class ResNet3d(nn.Module):
 
         self.avg = GlobalAveragePooling()
 
-        self.fc1 = FullConnecting(256, 512, 'relu')
-        self.dropout = nn.Dropout3d(0.5)
-        self.fc2 = FullConnecting(512, numclass, 'softmax')
+        self.fc_layers = nn.Sequential(
+            nn.Linear(256, 128), nn.ReLU(inplace=True), nn.Dropout(),
+            nn.Linear(128, self.numclass))
 
     def forward(self, x):
         # print("x.shape:", x.shape)
@@ -164,9 +144,6 @@ class ResNet3d(nn.Module):
         # print("x.shape", x.shape) # 1, 256, 8, 8
         x = self.avg(x)
         # print("x.shape", x.shape) # 1, 256
-        x = self.fc1(x)
-        # print("x.shape", x.shape) # 1, 512
-        x = self.dropout(x)
-        x = self.fc2(x)
+        x = self.fc_layers(x)
         # print("x.shape", x.shape) # 1, numclass
         return x
