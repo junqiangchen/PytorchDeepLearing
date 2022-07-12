@@ -1,9 +1,99 @@
 from __future__ import print_function, division
 import os
 import numpy as np
-import pandas as pd
 import SimpleITK as sitk
-import cv2
+
+
+def GetLargestConnectedCompontBoundingbox(binarysitk_image):
+    """
+    get 3dlargest region
+    :param binarysitk_image:binary itk image
+    :return: largest region bouddingbox
+    """
+    lsif = sitk.LabelShapeStatisticsImageFilter()
+    lsif.Execute(binarysitk_image)
+    boundingBox = np.array(lsif.GetBoundingBox(1))  # [xstart, ystart, zstart, xsize, ysize, zsize]
+    return boundingBox
+
+
+def GetLargestConnectedCompont(binarysitk_image):
+    """
+    get 3dlargest region
+    :param sitk_maskimg:binary itk image
+    :return: largest region binary image
+    """
+    cc = sitk.ConnectedComponent(binarysitk_image)
+    stats = sitk.LabelIntensityStatisticsImageFilter()
+    stats.SetGlobalDefaultNumberOfThreads(8)
+    stats.Execute(cc, binarysitk_image)
+    maxlabel = 0
+    maxsize = 0
+    for l in stats.GetLabels():
+        size = stats.GetPhysicalSize(l)
+        if maxsize < size:
+            maxlabel = l
+            maxsize = size
+    labelmaskimage = sitk.GetArrayFromImage(cc)
+    outmask = labelmaskimage.copy()
+    outmask[labelmaskimage == maxlabel] = 1
+    outmask[labelmaskimage != maxlabel] = 0
+    outmasksitk = sitk.GetImageFromArray(outmask)
+    outmasksitk.SetSpacing(binarysitk_image.GetSpacing())
+    outmasksitk.SetDirection(binarysitk_image.GetDirection())
+    outmasksitk.SetOrigin(binarysitk_image.GetOrigin())
+    return outmasksitk
+
+
+def MorphologicalOperation(sitk_maskimg, kernelsize, name='open'):
+    """
+    morphological operation
+    :param sitk_maskimg:
+    :param kernelsize:
+    :param name:operation name
+    :return:binary image
+    """
+    if name == 'open':
+        morphoimage = sitk.BinaryMorphologicalOpening(sitk_maskimg != 0, [kernelsize] * sitk_maskimg.GetDimension())
+        return morphoimage
+    if name == 'close':
+        morphoimage = sitk.BinaryMorphologicalClosing(sitk_maskimg != 0, kernelsize)
+        return morphoimage
+    if name == 'dilate':
+        morphoimage = sitk.BinaryDilate(sitk_maskimg != 0, kernelsize)
+        return morphoimage
+    if name == 'erode':
+        morphoimage = sitk.BinaryErode(sitk_maskimg != 0, kernelsize)
+        return morphoimage
+
+
+def getRangImageRange(image, index=0):
+    """
+    :param image:
+    :return:rang of image depth
+    """
+    startposition = 0
+    endposition = 0
+    for z in range(0, image.shape[index], 1):
+        if index == 0:
+            notzeroflag = np.max(image[z, :, :])
+        elif index == 1:
+            notzeroflag = np.max(image[:, z, :])
+        elif index == 2:
+            notzeroflag = np.max(image[:, :, z])
+        if notzeroflag:
+            startposition = z
+            break
+    for z in range(image.shape[index] - 1, -1, -1):
+        if index == 0:
+            notzeroflag = np.max(image[z, :, :])
+        elif index == 1:
+            notzeroflag = np.max(image[:, z, :])
+        elif index == 2:
+            notzeroflag = np.max(image[:, :, z])
+        if notzeroflag:
+            endposition = z
+            break
+    return startposition, endposition
 
 
 def resize_image_itkwithsize(itkimage, newSize, originSize, resamplemethod=sitk.sitkNearestNeighbor):
@@ -165,5 +255,6 @@ def save_file2csv(file_dir, file_name):
 
 
 if __name__ == '__main__':
-    save_file2csv(r'D:\cjq\data\Amos2022\train', 'data/amostrainseg.csv')
-    save_file2csv(r'D:\cjq\data\Amos2022\validation', 'data/amosvalidationseg.csv')
+    # save_file2csv(r'D:\challenge\data\KiPA2022\trainstage\train', 'data/traindata.csv')
+    # save_file2csv(r'D:\challenge\data\KiPA2022\trainstage\validation', 'data/validata.csv')
+    save_file2csv(r'D:\challenge\data\KiPA2022\trainstage\augtrain', 'data/trainaugdata.csv')
