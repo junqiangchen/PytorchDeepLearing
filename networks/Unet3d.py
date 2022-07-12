@@ -18,15 +18,15 @@ class UNet3d(nn.Module):
         self.pool1 = nn.MaxPool3d(kernel_size=2, stride=2)
         self.encoder2 = UNet3d._block(self.features, self.features * 2, name="enc2")
         self.pool2 = nn.MaxPool3d(kernel_size=2, stride=2)
-        self.encoder3 = UNet3d._block(self.features * 2, self.features * 4, name="enc3")
+        self.encoder3 = UNet3d._block(self.features * 2, self.features * 4, name="enc3", dropout=True)
         self.pool3 = nn.MaxPool3d(kernel_size=2, stride=2)
-        self.encoder4 = UNet3d._block(self.features * 4, self.features * 8, name="enc4")
+        self.encoder4 = UNet3d._block(self.features * 4, self.features * 8, name="enc4", dropout=True)
         self.pool4 = nn.MaxPool3d(kernel_size=2, stride=2)
-        self.bottleneck = UNet3d._block(self.features * 8, self.features * 16, name="bottleneck")
+        self.bottleneck = UNet3d._block(self.features * 8, self.features * 16, name="bottleneck", dropout=True)
         self.upconv4 = nn.ConvTranspose3d(self.features * 16, self.features * 8, kernel_size=2, stride=2)
-        self.decoder4 = UNet3d._block((self.features * 8) * 2, self.features * 8, name="dec4")
+        self.decoder4 = UNet3d._block((self.features * 8) * 2, self.features * 8, name="dec4", dropout=True)
         self.upconv3 = nn.ConvTranspose3d(self.features * 8, self.features * 4, kernel_size=2, stride=2)
-        self.decoder3 = UNet3d._block((self.features * 4) * 2, self.features * 4, name="dec3")
+        self.decoder3 = UNet3d._block((self.features * 4) * 2, self.features * 4, name="dec3", dropout=True)
         self.upconv2 = nn.ConvTranspose3d(self.features * 4, self.features * 2, kernel_size=2, stride=2)
         self.decoder2 = UNet3d._block((self.features * 2) * 2, self.features * 2, name="dec2")
         self.upconv1 = nn.ConvTranspose3d(self.features * 2, self.features, kernel_size=2, stride=2)
@@ -62,27 +62,45 @@ class UNet3d(nn.Module):
         return out_logit, output
 
     @staticmethod
-    def _block(in_channels, features, name):
-        return nn.Sequential(OrderedDict([
-            (name + "conv1", nn.Conv3d(
-                in_channels=in_channels,
-                out_channels=features,
-                kernel_size=3,
-                padding=1,
-                bias=False,
-            ),
-             ),
-            (name + "norm1", nn.BatchNorm3d(num_features=features)),
-            (name + "relu1", nn.ReLU(inplace=True)),
-            (
-                name + "conv2", nn.Conv3d(
+    def _block(in_channels, features, name, dropout=False):
+        if dropout:
+            block = nn.Sequential(OrderedDict([
+                (name + "conv1", nn.Conv3d(
+                    in_channels=in_channels,
+                    out_channels=features,
+                    kernel_size=3,
+                    padding=1,
+                    bias=False, ),),
+                (name + "norm1", nn.BatchNorm3d(num_features=features)),
+                (name + "relu1", nn.ReLU(inplace=True)),
+                (name + "dropout1", nn.Dropout3d()),
+                (name + "conv2", nn.Conv3d(
                     in_channels=features,
                     out_channels=features,
                     kernel_size=3,
                     padding=1,
-                    bias=False,
-                ),
-            ),
-            (name + "norm2", nn.BatchNorm3d(num_features=features)),
-            (name + "relu2", nn.ReLU(inplace=True)),
-        ]))
+                    bias=False, ),),
+                (name + "norm2", nn.BatchNorm3d(num_features=features)),
+                (name + "relu2", nn.ReLU(inplace=True)),
+                (name + "dropout2", nn.Dropout3d()),
+            ]))
+        else:
+            block = nn.Sequential(OrderedDict([
+                (name + "conv1", nn.Conv3d(
+                    in_channels=in_channels,
+                    out_channels=features,
+                    kernel_size=3,
+                    padding=1,
+                    bias=False, ),),
+                (name + "norm1", nn.BatchNorm3d(num_features=features)),
+                (name + "relu1", nn.ReLU(inplace=True)),
+                (name + "conv2", nn.Conv3d(
+                    in_channels=features,
+                    out_channels=features,
+                    kernel_size=3,
+                    padding=1,
+                    bias=False, ),),
+                (name + "norm2", nn.BatchNorm3d(num_features=features)),
+                (name + "relu2", nn.ReLU(inplace=True)),
+            ]))
+        return block
