@@ -110,8 +110,7 @@ class datasetModelSegwithnpy(Dataset):
         label = np.load(labelpath)
         # transpose (D,H,W,C) order to (C,D,H,W) order
         D, H, W = np.shape(label)[0], np.shape(label)[1], np.shape(label)[2]
-        label = np.reshape(label, (D, H, W, 1))
-        label = np.transpose(label, (3, 0, 1, 2))
+        label = np.reshape(label, (D, H, W))
         label_tensor = torch.as_tensor(label).long()
         return {'image': images_tensor, 'label': label_tensor}
 
@@ -155,7 +154,6 @@ class datasetModelSegwithopencv(Dataset):
         label = cv2.resize(label, (self.targetsize[1], self.targetsize[2]))
         label = label / 255.
         # transpose (H,W,C) order to (C,H,W) order
-        label = np.reshape(label, (H, W, 1))
-        label = np.transpose(label, (2, 0, 1))
+        label = np.reshape(label, (H, W))
         label_tensor = torch.as_tensor(label).long()
         return {'image': images_tensor, 'label': label_tensor}

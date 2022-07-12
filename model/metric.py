@@ -1,5 +1,6 @@
 from torch import Tensor
 import torch
+import torch.nn.functional as F
 
 
 # segmeantaion metric
@@ -30,11 +31,16 @@ def iou_coeff(input: Tensor, target: Tensor):
 
 
 def multiclass_dice_coeff(input: Tensor, target: Tensor):
-    assert input.size() == target.size()
+    Batchsize, Channel = input.shape[0], input.shape[1]
+    y_pred = input.float().contiguous().view(Batchsize, Channel, -1)
+    y_true = target.long().contiguous().view(Batchsize, -1)
+    y_true = F.one_hot(y_true, Channel)  # N,H*W -> N,H*W, C
+    y_true = y_true.permute(0, 2, 1)  # H, C, H*W
+    assert y_pred.size() == y_true.size()
     dice = 0
     # remove backgroud region
-    for channel in range(1, input.shape[1]):
-        dice += dice_coeff(input[:, channel, ...], target[:, channel, ...])
+    for channel in range(1, y_true.shape[1]):
+        dice += dice_coeff(y_pred[:, channel, ...], y_true[:, channel, ...])
     return dice / (input.shape[1] - 1)
 
 

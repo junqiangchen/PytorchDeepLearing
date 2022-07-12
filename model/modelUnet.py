@@ -5,7 +5,7 @@ from networks.Unet3d import UNet3d
 from .dataset import datasetModelSegwithopencv, datasetModelSegwithnpy
 from torch.utils.data import DataLoader
 from .losses import BinaryDiceLoss, BinaryFocalLoss, BinaryCrossEntropyLoss, BinaryCrossEntropyDiceLoss, \
-    MutilDiceLoss, MutilFocalLoss, MutilCrossEntropyLoss
+    MutilDiceLoss, MutilFocalLoss, MutilCrossEntropyLoss, MutilCrossEntropyDiceLoss
 import torch.optim as optim
 import numpy as np
 from tqdm import tqdm
@@ -15,7 +15,7 @@ from pathlib import Path
 import time
 import os
 import cv2
-from dataprocess.utils import resize_image_itkwithsize, ConvertitkTrunctedValue
+from dataprocess.utils import resize_image_itkwithsize, ConvertitkTrunctedValue, normalize
 import SimpleITK as sitk
 import multiprocessing
 from torchsummary import summary
@@ -130,18 +130,11 @@ class BinaryUNet2dModel(object):
                 x, y = x.to(self.device), y.to(self.device)
                 # perform a forward pass and calculate the training loss and accu
                 pred_logit, pred = self.model(x)
-                if self.loss_name is 'BinaryCrossEntropyLoss':
-                    loss = lossFunc(pred_logit, y)
-                if self.loss_name is 'BinaryDiceLoss':
-                    loss = lossFunc(pred, y)
-                if self.loss_name is 'BinaryCrossEntropyDiceLoss':
-                    loss = lossFunc(pred, pred_logit, y)
-                if self.loss_name is 'BinaryFocalLoss':
-                    loss = lossFunc(pred_logit, y)
+                loss = lossFunc(pred_logit, y)
                 accu = self._accuracy_function(self.accuracyname, pred, y)
                 # save_images
-                savepath = model_dir + '/' + str(e + 1) + "_Train_EPOCH_"
-                save_images2d(pred[0], y[0], savepath, pixelvalue=showpixelvalue)
+                # savepath = model_dir + '/' + str(e + 1) + "_Train_EPOCH_"
+                # save_images2d(pred[0], y[0], savepath, pixelvalue=showpixelvalue)
                 # first, zero out any previously accumulated gradients,
                 # then perform backpropagation,
                 # and then update model parameters
@@ -166,14 +159,7 @@ class BinaryUNet2dModel(object):
                     (x, y) = (x.to(self.device), y.to(self.device))
                     # make the predictions and calculate the validation loss
                     pred_logit, pred = self.model(x)
-                    if self.loss_name is 'BinaryCrossEntropyLoss':
-                        loss = lossFunc(pred_logit, y)
-                    if self.loss_name is 'BinaryDiceLoss':
-                        loss = lossFunc(pred, y)
-                    if self.loss_name is 'BinaryCrossEntropyDiceLoss':
-                        loss = lossFunc(pred, pred_logit, y)
-                    if self.loss_name is 'BinaryFocalLoss':
-                        loss = lossFunc(pred_logit, y)
+                    loss = lossFunc(pred_logit, y)
                     accu = self._accuracy_function(self.accuracyname, pred, y)
                     # save_images
                     savepath = model_dir + '/' + str(e + 1) + "_Val_EPOCH_"
@@ -367,15 +353,10 @@ class MutilUNet2dModel(object):
                 x, y = x.to(self.device), y.to(self.device)
                 # perform a forward pass and calculate the training loss and accu
                 pred_logit, pred = self.model(x)
-                if self.loss_name is 'MutilCrossEntropyLoss':
-                    loss = lossFunc(pred_logit, y)
-                if self.loss_name is 'MutilDiceLoss':
-                    loss = lossFunc(pred, y)
-                if self.loss_name is 'MutilFocalLoss':
-                    loss = lossFunc(pred_logit, y)
+                loss = lossFunc(pred_logit, y)
                 accu = self._accuracy_function(self.accuracyname, pred, y)
-                savepath = model_dir + '/' + str(e + 1) + "_Train_EPOCH_"
-                save_images2d(torch.argmax(pred[0], 0), torch.argmax(y[0], 0), savepath, pixelvalue=showpixelvalue)
+                # savepath = model_dir + '/' + str(e + 1) + "_Train_EPOCH_"
+                # save_images2d(torch.argmax(pred[0], 0), torch.argmax(y[0], 0), savepath, pixelvalue=showpixelvalue)
                 # first, zero out any previously accumulated gradients,
                 # then perform backpropagation,
                 # and then update model parameters
@@ -406,12 +387,7 @@ class MutilUNet2dModel(object):
                     (x, y) = (x.to(self.device), y.to(self.device))
                     # make the predictions and calculate the validation loss
                     pred_logit, pred = self.model(x)
-                    if self.loss_name is 'MutilCrossEntropyLoss':
-                        loss = lossFunc(pred_logit, y)
-                    if self.loss_name is 'MutilDiceLoss':
-                        loss = lossFunc(pred, y)
-                    if self.loss_name is 'MutilFocalLoss':
-                        loss = lossFunc(pred_logit, y)
+                    loss = lossFunc(pred_logit, y)
                     # save_images
                     accu = self._accuracy_function(self.accuracyname, pred, y)
                     savepath = model_dir + '/' + str(e + 1) + "_Val_EPOCH_"
@@ -604,18 +580,11 @@ class BinaryUNet3dModel(object):
                 x, y = x.to(self.device), y.to(self.device)
                 # perform a forward pass and calculate the training loss and accu
                 pred_logit, pred = self.model(x)
-                if self.loss_name is 'BinaryCrossEntropyLoss':
-                    loss = lossFunc(pred_logit, y)
-                if self.loss_name is 'BinaryDiceLoss':
-                    loss = lossFunc(pred, y)
-                if self.loss_name is 'BinaryCrossEntropyDiceLoss':
-                    loss = lossFunc(pred, pred_logit, y)
-                if self.loss_name is 'BinaryFocalLoss':
-                    loss = lossFunc(pred_logit, y)
+                loss = lossFunc(pred_logit, y)
                 accu = self._accuracy_function(self.accuracyname, pred, y)
                 # save_images
-                savepath = model_dir + '/' + str(e + 1) + "_Train_EPOCH_"
-                save_images3d(pred[0], y[0], showwind, savepath, pixelvalue=showpixelvalue)
+                # savepath = model_dir + '/' + str(e + 1) + "_Train_EPOCH_"
+                # save_images3d(pred[0], y[0], showwind, savepath, pixelvalue=showpixelvalue)
                 # first, zero out any previously accumulated gradients,
                 # then perform backpropagation,
                 # and then update model parameters
@@ -640,14 +609,7 @@ class BinaryUNet3dModel(object):
                     (x, y) = (x.to(self.device), y.to(self.device))
                     # make the predictions and calculate the validation loss
                     pred_logit, pred = self.model(x)
-                    if self.loss_name is 'BinaryCrossEntropyLoss':
-                        loss = lossFunc(pred_logit, y)
-                    if self.loss_name is 'BinaryDiceLoss':
-                        loss = lossFunc(pred, y)
-                    if self.loss_name is 'BinaryCrossEntropyDiceLoss':
-                        loss = lossFunc(pred, pred_logit, y)
-                    if self.loss_name is 'BinaryFocalLoss':
-                        loss = lossFunc(pred_logit, y)
+                    loss = lossFunc(pred_logit, y)
                     accu = self._accuracy_function(self.accuracyname, pred, y)
                     # save_images
                     savepath = model_dir + '/' + str(e + 1) + "_Val_EPOCH_"
@@ -756,7 +718,7 @@ class MutilUNet3dModel(object):
         self.numclass = numclass
 
         self.alpha = [1.] * self.numclass
-        self.gamma = 4
+        self.gamma = 3
 
         self.use_cuda = use_cuda
         self.device = torch.device('cuda' if self.use_cuda else 'cpu')
@@ -788,10 +750,11 @@ class MutilUNet3dModel(object):
         if lossname is 'MutilCrossEntropyLoss':
             return MutilCrossEntropyLoss(alpha=self.alpha)
         if lossname is 'MutilDiceLoss':
-            self.alpha[0] = 0.1
             return MutilDiceLoss(alpha=self.alpha)
         if lossname is 'MutilFocalLoss':
             return MutilFocalLoss(alpha=self.alpha, gamma=self.gamma)
+        if lossname is 'MutilCrossEntropyDiceLoss':
+            return MutilCrossEntropyDiceLoss(alpha=self.alpha)
 
     def _accuracy_function(self, accuracyname, input, target):
         if accuracyname is 'dice':
@@ -817,7 +780,7 @@ class MutilUNet3dModel(object):
             showpixelvalue = showpixelvalue // (self.numclass - 1)
         # 1、initialize loss function and optimizer
         lossFunc = self._loss_function(self.loss_name)
-        opt = optim.Adam(self.model.parameters(), lr=lr)
+        opt = optim.AdamW(self.model.parameters(), lr=lr, weight_decay=1e-4)
         # 2、load data train and validation dataset
         train_loader = self._dataloder(trainimage, trainmask, True)
         val_loader = self._dataloder(validationimage, validationmask)
@@ -843,27 +806,12 @@ class MutilUNet3dModel(object):
                 # y should tensor with shape (N,C,D,W,H),
                 # if have mutil label y should one-hot,if only one label,the C is one
                 y = batch['label']
-                # one-hot encoding
-                # y tensor with shape (N,D,W,H)
-                y = torch.squeeze(y, dim=1)
-                # y tensor with shape (N,D,W,H,C)
-                y = F.one_hot(y, self.numclass)
-                # y tensor with shape (N,C,D,W,H)
-                y = y.permute(0, 4, 1, 2, 3)
                 # send the input to the device
                 x, y = x.to(self.device), y.to(self.device)
                 # perform a forward pass and calculate the training loss and accu
                 pred_logit, pred = self.model(x)
-                if self.loss_name is 'MutilCrossEntropyLoss':
-                    loss = lossFunc(pred_logit, y)
-                if self.loss_name is 'MutilDiceLoss':
-                    loss = lossFunc(pred, y)
-                if self.loss_name is 'MutilFocalLoss':
-                    loss = lossFunc(pred_logit, y)
+                loss = lossFunc(pred_logit, y)
                 accu = self._accuracy_function(self.accuracyname, pred, y)
-                savepath = model_dir + '/' + str(e + 1) + "_Train_EPOCH_"
-                save_images3d(torch.argmax(pred[0], 0), torch.argmax(y[0], 0), showwind, savepath,
-                              pixelvalue=showpixelvalue)
                 # first, zero out any previously accumulated gradients,
                 # then perform backpropagation,
                 # and then update model parameters
@@ -883,27 +831,15 @@ class MutilUNet3dModel(object):
                     x = batch['image']
                     # y should tensor with shape (N,C,W,H)
                     y = batch['label']
-                    # one-hot encoding
-                    # y tensor with shape (N,D,W,H)
-                    y = torch.squeeze(y, dim=1)
-                    # y tensor with shape (N,D,W,H,C)
-                    y = F.one_hot(y, self.numclass)
-                    # y tensor with shape (N,C,D,W,H)
-                    y = y.permute(0, 4, 1, 2, 3)
                     # send the input to the device
                     (x, y) = (x.to(self.device), y.to(self.device))
                     # make the predictions and calculate the validation loss
                     pred_logit, pred = self.model(x)
-                    if self.loss_name is 'MutilCrossEntropyLoss':
-                        loss = lossFunc(pred_logit, y)
-                    if self.loss_name is 'MutilDiceLoss':
-                        loss = lossFunc(pred, y)
-                    if self.loss_name is 'MutilFocalLoss':
-                        loss = lossFunc(pred_logit, y)
+                    loss = lossFunc(pred_logit, y)
                     # save_images
                     accu = self._accuracy_function(self.accuracyname, pred, y)
                     savepath = model_dir + '/' + str(e + 1) + "_Val_EPOCH_"
-                    save_images3d(torch.argmax(pred[0], 0), torch.argmax(y[0], 0), showwind, savepath,
+                    save_images3d(torch.argmax(pred[0], 0), y[0], showwind, savepath,
                                   pixelvalue=showpixelvalue)
                     totalValidationLoss.append(loss)
                     totalValiadtionAccu.append(accu)
@@ -968,8 +904,9 @@ class MutilUNet3dModel(object):
     def inference(self, imagesitk, newSize=(96, 96, 96)):
         # resize image and normalization,should rewrite
         _, resizeimagesitk = resize_image_itkwithsize(imagesitk, newSize, imagesitk.GetSize(), sitk.sitkLinear)
-        resizeimagesitk = ConvertitkTrunctedValue(resizeimagesitk, 100, -100, 'meanstd')
+        # resizeimagesitk = ConvertitkTrunctedValue(resizeimagesitk, 100, -100, 'meanstd')
         imageresize = sitk.GetArrayFromImage(resizeimagesitk)
+        imageresize = normalize(imageresize)
         # transpose (D,H,W,C) order to (C,D,H,W) order
         D, H, W = np.shape(imageresize)[0], np.shape(imageresize)[1], np.shape(imageresize)[2]
         imageresize = np.reshape(imageresize, (D, H, W, 1))

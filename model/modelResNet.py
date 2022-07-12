@@ -118,10 +118,7 @@ class BinaryResNet2dModel(object):
                 x, y = x.to(self.device), y.to(self.device)
                 # perform a forward pass and calculate the training loss and accu
                 pred_logit = self.model(x)
-                if self.loss_name is 'BinaryCrossEntropyLoss':
-                    loss = lossFunc(pred_logit, y)
-                if self.loss_name is 'BinaryFocalLoss':
-                    loss = lossFunc(pred_logit, y)
+                loss = lossFunc(pred_logit, y)
                 pred = F.sigmoid(pred_logit)
                 accu = self._accuracy_function(self.accuracyname, pred, y)
                 # first, zero out any previously accumulated gradients,
@@ -147,10 +144,7 @@ class BinaryResNet2dModel(object):
                     (x, y) = (x.to(self.device), y.to(self.device))
                     # make the predictions and calculate the validation loss
                     pred_logit = self.model(x)
-                    if self.loss_name is 'BinaryCrossEntropyLoss':
-                        loss = lossFunc(pred_logit, y)
-                    if self.loss_name is 'BinaryFocalLoss':
-                        loss = lossFunc(pred_logit, y)
+                    loss = lossFunc(pred_logit, y)
                     pred = F.sigmoid(pred_logit)
                     accu = self._accuracy_function(self.accuracyname, pred, y)
                     totalValidationLoss.append(loss)
@@ -335,10 +329,7 @@ class MutilResNet2dModel(object):
                 x, y = x.to(self.device), y.to(self.device)
                 # perform a forward pass and calculate the training loss and accu
                 pred_logits = self.model(x)
-                if self.loss_name is 'MutilCrossEntropyLoss':
-                    loss = lossFunc(pred_logits, y)
-                if self.loss_name is 'MutilFocalLoss':
-                    loss = lossFunc(pred_logits, y)
+                loss = lossFunc(pred_logits, y)
                 # first, zero out any previously accumulated gradients,
                 # then perform backpropagation,
                 # and then update model parameters
@@ -366,10 +357,7 @@ class MutilResNet2dModel(object):
                     (x, y) = (x.to(self.device), y.to(self.device))
                     # make the predictions and calculate the validation loss
                     pred_logits = self.model(x)
-                    if self.loss_name is 'MutilCrossEntropyLoss':
-                        loss = lossFunc(pred_logits, y)
-                    if self.loss_name is 'MutilFocalLoss':
-                        loss = lossFunc(pred_logits, y)
+                    loss = lossFunc(pred_logits, y)
                     # save_images
                     pred = F.softmax(pred_logits, dim=1)
                     accu = self._accuracy_function(self.accuracyname, pred, y)
@@ -555,10 +543,7 @@ class BinaryResNet3dModel(object):
                 x, y = x.to(self.device), y.to(self.device)
                 # perform a forward pass and calculate the training loss and accu
                 pred_logit = self.model(x)
-                if self.loss_name is 'BinaryCrossEntropyLoss':
-                    loss = lossFunc(pred_logit, y)
-                if self.loss_name is 'BinaryFocalLoss':
-                    loss = lossFunc(pred_logit, y)
+                loss = lossFunc(pred_logit, y)
                 pred = F.sigmoid(pred_logit)
                 accu = self._accuracy_function(self.accuracyname, pred, y)
                 # first, zero out any previously accumulated gradients,
@@ -584,10 +569,7 @@ class BinaryResNet3dModel(object):
                     (x, y) = (x.to(self.device), y.to(self.device))
                     # make the predictions and calculate the validation loss
                     pred_logit = self.model(x)
-                    if self.loss_name is 'BinaryCrossEntropyLoss':
-                        loss = lossFunc(pred_logit, y)
-                    if self.loss_name is 'BinaryFocalLoss':
-                        loss = lossFunc(pred_logit, y)
+                    loss = lossFunc(pred_logit, y)
                     pred = F.sigmoid(pred_logit)
                     accu = self._accuracy_function(self.accuracyname, pred, y)
                     totalValidationLoss.append(loss)
@@ -771,10 +753,7 @@ class MutilResNet3dModel(object):
                 x, y = x.to(self.device), y.to(self.device)
                 # perform a forward pass and calculate the training loss and accu
                 pred_logit = self.model(x)
-                if self.loss_name is 'MutilCrossEntropyLoss':
-                    loss = lossFunc(pred_logit, y)
-                if self.loss_name is 'MutilFocalLoss':
-                    loss = lossFunc(pred_logit, y)
+                loss = lossFunc(pred_logit, y)
                 # first, zero out any previously accumulated gradients,
                 # then perform backpropagation,
                 # and then update model parameters
@@ -801,10 +780,7 @@ class MutilResNet3dModel(object):
                     (x, y) = (x.to(self.device), y.to(self.device))
                     # make the predictions and calculate the validation loss
                     pred_logit = self.model(x)
-                    if self.loss_name is 'MutilCrossEntropyLoss':
-                        loss = lossFunc(pred_logit, y)
-                    if self.loss_name is 'MutilFocalLoss':
-                        loss = lossFunc(pred_logit, y)
+                    loss = lossFunc(pred_logit, y)
                     pred = F.softmax(pred_logit, dim=1)
                     accu = self._accuracy_function(self.accuracyname, pred, y)
                     totalValidationLoss.append(loss)

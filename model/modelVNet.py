@@ -129,14 +129,7 @@ class BinaryVNet2dModel(object):
                 x, y = x.to(self.device), y.to(self.device)
                 # perform a forward pass and calculate the training loss and accu
                 pred_logit, pred = self.model(x)
-                if self.loss_name is 'BinaryCrossEntropyLoss':
-                    loss = lossFunc(pred_logit, y)
-                if self.loss_name is 'BinaryDiceLoss':
-                    loss = lossFunc(pred, y)
-                if self.loss_name is 'BinaryCrossEntropyDiceLoss':
-                    loss = lossFunc(pred, pred_logit, y)
-                if self.loss_name is 'BinaryFocalLoss':
-                    loss = lossFunc(pred_logit, y)
+                loss = lossFunc(pred_logit, y)
                 accu = self._accuracy_function(self.accuracyname, pred, y)
                 # save_images
                 savepath = model_dir + '/' + str(e + 1) + "_Train_EPOCH_"
@@ -165,14 +158,7 @@ class BinaryVNet2dModel(object):
                     (x, y) = (x.to(self.device), y.to(self.device))
                     # make the predictions and calculate the validation loss
                     pred_logit, pred = self.model(x)
-                    if self.loss_name is 'BinaryCrossEntropyLoss':
-                        loss = lossFunc(pred_logit, y)
-                    if self.loss_name is 'BinaryDiceLoss':
-                        loss = lossFunc(pred, y)
-                    if self.loss_name is 'BinaryCrossEntropyDiceLoss':
-                        loss = lossFunc(pred, pred_logit, y)
-                    if self.loss_name is 'BinaryFocalLoss':
-                        loss = lossFunc(pred_logit, y)
+                    loss = lossFunc(pred_logit, y)
                     accu = self._accuracy_function(self.accuracyname, pred, y)
                     # save_images
                     savepath = model_dir + '/' + str(e + 1) + "_Val_EPOCH_"
@@ -367,12 +353,7 @@ class MutilVNet2dModel(object):
                 x, y = x.to(self.device), y.to(self.device)
                 # perform a forward pass and calculate the training loss and accu
                 pred_logit, pred = self.model(x)
-                if self.loss_name is 'MutilCrossEntropyLoss':
-                    loss = lossFunc(pred_logit, y)
-                if self.loss_name is 'MutilDiceLoss':
-                    loss = lossFunc(pred, y)
-                if self.loss_name is 'MutilFocalLoss':
-                    loss = lossFunc(pred_logit, y)
+                loss = lossFunc(pred_logit, y)
                 accu = self._accuracy_function(self.accuracyname, pred, y)
                 savepath = model_dir + '/' + str(e + 1) + "_Train_EPOCH_"
                 save_images2d(torch.argmax(pred[0], 0), torch.argmax(y[0], 0), savepath, pixelvalue=showpixelvalue)
@@ -406,12 +387,7 @@ class MutilVNet2dModel(object):
                     (x, y) = (x.to(self.device), y.to(self.device))
                     # make the predictions and calculate the validation loss
                     pred_logit, pred = self.model(x)
-                    if self.loss_name is 'MutilCrossEntropyLoss':
-                        loss = lossFunc(pred_logit, y)
-                    if self.loss_name is 'MutilDiceLoss':
-                        loss = lossFunc(pred, y)
-                    if self.loss_name is 'MutilFocalLoss':
-                        loss = lossFunc(pred_logit, y)
+                    loss = lossFunc(pred_logit, y)
                     # save_images
                     accu = self._accuracy_function(self.accuracyname, pred, y)
                     savepath = model_dir + '/' + str(e + 1) + "_Val_EPOCH_"
@@ -604,14 +580,7 @@ class BinaryVNet3dModel(object):
                 x, y = x.to(self.device), y.to(self.device)
                 # perform a forward pass and calculate the training loss and accu
                 pred_logit, pred = self.model(x)
-                if self.loss_name is 'BinaryCrossEntropyLoss':
-                    loss = lossFunc(pred_logit, y)
-                if self.loss_name is 'BinaryDiceLoss':
-                    loss = lossFunc(pred, y)
-                if self.loss_name is 'BinaryCrossEntropyDiceLoss':
-                    loss = lossFunc(pred, pred_logit, y)
-                if self.loss_name is 'BinaryFocalLoss':
-                    loss = lossFunc(pred_logit, y)
+                loss = lossFunc(pred_logit, y)
                 accu = self._accuracy_function(self.accuracyname, pred, y)
                 # save_images
                 savepath = model_dir + '/' + str(e + 1) + "_Train_EPOCH_"
@@ -640,14 +609,7 @@ class BinaryVNet3dModel(object):
                     (x, y) = (x.to(self.device), y.to(self.device))
                     # make the predictions and calculate the validation loss
                     pred_logit, pred = self.model(x)
-                    if self.loss_name is 'BinaryCrossEntropyLoss':
-                        loss = lossFunc(pred_logit, y)
-                    if self.loss_name is 'BinaryDiceLoss':
-                        loss = lossFunc(pred, y)
-                    if self.loss_name is 'BinaryCrossEntropyDiceLoss':
-                        loss = lossFunc(pred, pred_logit, y)
-                    if self.loss_name is 'BinaryFocalLoss':
-                        loss = lossFunc(pred_logit, y)
+                    loss = lossFunc(pred_logit, y)
                     accu = self._accuracy_function(self.accuracyname, pred, y)
                     # save_images
                     savepath = model_dir + '/' + str(e + 1) + "_Val_EPOCH_"
@@ -756,7 +718,7 @@ class MutilVNet3dModel(object):
         self.numclass = numclass
 
         self.alpha = [1.] * self.numclass
-        self.gamma = 2
+        self.gamma = 3
 
         self.use_cuda = use_cuda
         self.device = torch.device('cuda' if self.use_cuda else 'cpu')
@@ -854,12 +816,7 @@ class MutilVNet3dModel(object):
                 x, y = x.to(self.device), y.to(self.device)
                 # perform a forward pass and calculate the training loss and accu
                 pred_logit, pred = self.model(x)
-                if self.loss_name is 'MutilCrossEntropyLoss':
-                    loss = lossFunc(pred_logit, y)
-                if self.loss_name is 'MutilDiceLoss':
-                    loss = lossFunc(pred, y)
-                if self.loss_name is 'MutilFocalLoss':
-                    loss = lossFunc(pred_logit, y)
+                loss = lossFunc(pred_logit, y)
                 accu = self._accuracy_function(self.accuracyname, pred, y)
                 savepath = model_dir + '/' + str(e + 1) + "_Train_EPOCH_"
                 save_images3d(torch.argmax(pred[0], 0), torch.argmax(y[0], 0), showwind, savepath,
@@ -894,12 +851,7 @@ class MutilVNet3dModel(object):
                     (x, y) = (x.to(self.device), y.to(self.device))
                     # make the predictions and calculate the validation loss
                     pred_logit, pred = self.model(x)
-                    if self.loss_name is 'MutilCrossEntropyLoss':
-                        loss = lossFunc(pred_logit, y)
-                    if self.loss_name is 'MutilDiceLoss':
-                        loss = lossFunc(pred, y)
-                    if self.loss_name is 'MutilFocalLoss':
-                        loss = lossFunc(pred_logit, y)
+                    loss = lossFunc(pred_logit, y)
                     # save_images
                     accu = self._accuracy_function(self.accuracyname, pred, y)
                     savepath = model_dir + '/' + str(e + 1) + "_Val_EPOCH_"

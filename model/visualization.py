@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import cv2
 from torch import Tensor
+import SimpleITK as sitk
 
 
 def plot_result(model_dir, H_train, H_validation, H_train_name, H_validation_name, labelname):
