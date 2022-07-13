@@ -77,7 +77,6 @@ class BinaryResNet2dModel(object):
                 return calc_accuracy(input, target)
             else:
                 input = torch.argmax(input, 1)
-                target = torch.argmax(target, 1)
                 return calc_accuracy(input, target)
 
     def trainprocess(self, trainimage, trainmask, validationimage, validationmask, model_dir, epochs=50, lr=1e-3):
@@ -88,7 +87,8 @@ class BinaryResNet2dModel(object):
         print(self.model)
         # 1、initialize loss function and optimizer
         lossFunc = self._loss_function(self.loss_name)
-        opt = optim.Adam(self.model.parameters(), lr=lr)
+        opt = optim.Adam(self.model.parameters(), lr=lr, weight_decay=1e-4)
+        lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(opt, 'min', patience=2, verbose=True)
         # 2、load data train and validation dataset
         train_loader = self._dataloder(trainimage, trainmask, True)
         val_loader = self._dataloder(validationimage, validationmask)
@@ -154,6 +154,7 @@ class BinaryResNet2dModel(object):
             avgValidationLoss = torch.mean(torch.stack(totalValidationLoss))
             avgTrainAccu = torch.mean(torch.stack(totalTrainAccu))
             avgValidationAccu = torch.mean(torch.stack(totalValiadtionAccu))
+            lr_scheduler.step(avgValidationLoss)
             # 4.6、update our training history
             H["train_loss"].append(avgTrainLoss.cpu().detach().numpy())
             H["valdation_loss"].append(avgValidationLoss.cpu().detach().numpy())
@@ -286,7 +287,6 @@ class MutilResNet2dModel(object):
                 return calc_accuracy(input, target)
             else:
                 input = torch.argmax(input, 1)
-                target = torch.argmax(target, 1)
                 return calc_accuracy(input, target)
 
     def trainprocess(self, trainimage, trainmask, validationimage, validationmask, model_dir, epochs=50, lr=1e-3):
@@ -297,7 +297,8 @@ class MutilResNet2dModel(object):
         print(self.model)
         # 1、initialize loss function and optimizer
         lossFunc = self._loss_function(self.loss_name)
-        opt = optim.Adam(self.model.parameters(), lr=lr)
+        opt = optim.Adam(self.model.parameters(), lr=lr, weight_decay=1e-4)
+        lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(opt, 'min', patience=2, verbose=True)
         # 2、load data train and validation dataset
         train_loader = self._dataloder(trainimage, trainmask, True)
         val_loader = self._dataloder(validationimage, validationmask)
@@ -323,8 +324,6 @@ class MutilResNet2dModel(object):
                 # y should tensor with shape (N,C,W,H),
                 # if have mutil label y should one-hot,if only one label,the C is one
                 y = batch['label']
-                # one-hot encoding
-                y = F.one_hot(y, self.numclass)
                 # send the input to the device
                 x, y = x.to(self.device), y.to(self.device)
                 # perform a forward pass and calculate the training loss and accu
@@ -351,8 +350,6 @@ class MutilResNet2dModel(object):
                     x = batch['image']
                     # y should tensor with shape (N,)
                     y = batch['label']
-                    # one-hot encoding
-                    y = F.one_hot(y, self.numclass)
                     # send the input to the device
                     (x, y) = (x.to(self.device), y.to(self.device))
                     # make the predictions and calculate the validation loss
@@ -368,6 +365,7 @@ class MutilResNet2dModel(object):
             avgValidationLoss = torch.mean(torch.stack(totalValidationLoss))
             avgTrainAccu = torch.mean(torch.stack(totalTrainAccu))
             avgValidationAccu = torch.mean(torch.stack(totalValiadtionAccu))
+            lr_scheduler.step(avgValidationLoss)
             # 4.6、update our training history
             H["train_loss"].append(avgTrainLoss.cpu().detach().numpy())
             H["valdation_loss"].append(avgValidationLoss.cpu().detach().numpy())
@@ -502,7 +500,6 @@ class BinaryResNet3dModel(object):
                 return calc_accuracy(input, target)
             else:
                 input = torch.argmax(input, 1)
-                target = torch.argmax(target, 1)
                 return calc_accuracy(input, target)
 
     def trainprocess(self, trainimage, trainmask, validationimage, validationmask, model_dir, epochs=50, lr=1e-3):
@@ -513,7 +510,8 @@ class BinaryResNet3dModel(object):
         print(self.model)
         # 1、initialize loss function and optimizer
         lossFunc = self._loss_function(self.loss_name)
-        opt = optim.Adam(self.model.parameters(), lr=lr)
+        opt = optim.Adam(self.model.parameters(), lr=lr, weight_decay=1e-4)
+        lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(opt, 'min', patience=2, verbose=True)
         # 2、load data train and validation dataset
         train_loader = self._dataloder(trainimage, trainmask, True)
         val_loader = self._dataloder(validationimage, validationmask)
@@ -579,6 +577,7 @@ class BinaryResNet3dModel(object):
             avgValidationLoss = torch.mean(torch.stack(totalValidationLoss))
             avgTrainAccu = torch.mean(torch.stack(totalTrainAccu))
             avgValidationAccu = torch.mean(torch.stack(totalValiadtionAccu))
+            lr_scheduler.step(avgValidationLoss)
             # 4.6、update our training history
             H["train_loss"].append(avgTrainLoss.cpu().detach().numpy())
             H["valdation_loss"].append(avgValidationLoss.cpu().detach().numpy())
@@ -711,7 +710,6 @@ class MutilResNet3dModel(object):
                 return calc_accuracy(input, target)
             else:
                 input = torch.argmax(input, 1)
-                target = torch.argmax(target, 1)
                 return calc_accuracy(input, target)
 
     def trainprocess(self, trainimage, trainmask, validationimage, validationmask, model_dir, epochs=50, lr=1e-3):
@@ -722,7 +720,8 @@ class MutilResNet3dModel(object):
         print(self.model)
         # 1、initialize loss function and optimizer
         lossFunc = self._loss_function(self.loss_name)
-        opt = optim.Adam(self.model.parameters(), lr=lr)
+        opt = optim.Adam(self.model.parameters(), lr=lr, weight_decay=1e-4)
+        lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(opt, 'min', patience=2, verbose=True)
         # 2、load data train and validation dataset
         train_loader = self._dataloder(trainimage, trainmask, True)
         val_loader = self._dataloder(validationimage, validationmask)
@@ -748,7 +747,6 @@ class MutilResNet3dModel(object):
                 # y should tensor with shape (N,C,W,H),
                 # if have mutil label y should one-hot,if only one label,the C is one
                 y = batch['label']
-                y = F.one_hot(y, self.numclass)
                 # send the input to the device
                 x, y = x.to(self.device), y.to(self.device)
                 # perform a forward pass and calculate the training loss and accu
@@ -775,7 +773,6 @@ class MutilResNet3dModel(object):
                     x = batch['image']
                     # y should tensor with shape (N,C,W,H)
                     y = batch['label']
-                    y = F.one_hot(y, self.numclass)
                     # send the input to the device
                     (x, y) = (x.to(self.device), y.to(self.device))
                     # make the predictions and calculate the validation loss
@@ -790,6 +787,7 @@ class MutilResNet3dModel(object):
             avgValidationLoss = torch.mean(torch.stack(totalValidationLoss))
             avgTrainAccu = torch.mean(torch.stack(totalTrainAccu))
             avgValidationAccu = torch.mean(torch.stack(totalValiadtionAccu))
+            lr_scheduler.step(avgValidationLoss)
             # 4.6、update our training history
             H["train_loss"].append(avgTrainLoss.cpu().detach().numpy())
             H["valdation_loss"].append(avgValidationLoss.cpu().detach().numpy())

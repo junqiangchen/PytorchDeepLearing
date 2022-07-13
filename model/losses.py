@@ -3,7 +3,6 @@ import torch.nn.functional as F
 import torch
 from .lovasz import _lovasz_hinge, _lovasz_softmax
 from typing import Optional, Union
-from torch.nn.modules.loss import _Loss
 
 
 # binary loss
@@ -231,6 +230,9 @@ class MutilCrossEntropyDiceLoss(nn.Module):
 
 
 class LovaszLoss(nn.Module):
+    """
+    mutil LovaszLoss
+    """
     def __init__(self, per_image=False, ignore=None):
         super(LovaszLoss, self).__init__()
         self.ignore = ignore

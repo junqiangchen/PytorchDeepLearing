@@ -98,7 +98,8 @@ class BinaryVNet2dModel(object):
             showpixelvalue = showpixelvalue // (self.numclass - 1)
         # 1、initialize loss function and optimizer
         lossFunc = self._loss_function(self.loss_name)
-        opt = optim.Adam(self.model.parameters(), lr=lr)
+        opt = optim.Adam(self.model.parameters(), lr=lr, weight_decay=1e-4)
+        lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(opt, 'min', patience=2, verbose=True)
         # 2、load data train and validation dataset
         train_loader = self._dataloder(trainimage, trainmask, True)
         val_loader = self._dataloder(validationimage, validationmask)
@@ -170,6 +171,7 @@ class BinaryVNet2dModel(object):
             avgValidationLoss = torch.mean(torch.stack(totalValidationLoss))
             avgTrainAccu = torch.mean(torch.stack(totalTrainAccu))
             avgValidationAccu = torch.mean(torch.stack(totalValiadtionAccu))
+            lr_scheduler.step(avgValidationLoss)
             # 4.6、update our training history
             H["train_loss"].append(avgTrainLoss.cpu().detach().numpy())
             H["valdation_loss"].append(avgValidationLoss.cpu().detach().numpy())
@@ -316,7 +318,8 @@ class MutilVNet2dModel(object):
             showpixelvalue = showpixelvalue // (self.numclass - 1)
         # 1、initialize loss function and optimizer
         lossFunc = self._loss_function(self.loss_name)
-        opt = optim.Adam(self.model.parameters(), lr=lr)
+        opt = optim.Adam(self.model.parameters(), lr=lr, weight_decay=1e-4)
+        lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(opt, 'min', patience=2, verbose=True)
         # 2、load data train and validation dataset
         train_loader = self._dataloder(trainimage, trainmask, True)
         val_loader = self._dataloder(validationimage, validationmask)
@@ -342,13 +345,6 @@ class MutilVNet2dModel(object):
                 # y should tensor with shape (N,C,W,H),
                 # if have mutil label y should one-hot,if only one label,the C is one
                 y = batch['label']
-                # one-hot encoding
-                # y tensor with shape (N,W,H)
-                y = torch.squeeze(y, dim=1)
-                # y tensor with shape (N,W,H,C)
-                y = F.one_hot(y, self.numclass)
-                # y tensor with shape (N,C,W,H)
-                y = y.permute(0, 3, 1, 2)
                 # send the input to the device
                 x, y = x.to(self.device), y.to(self.device)
                 # perform a forward pass and calculate the training loss and accu
@@ -376,13 +372,6 @@ class MutilVNet2dModel(object):
                     x = batch['image']
                     # y should tensor with shape (N,C,W,H)
                     y = batch['label']
-                    # one-hot encoding
-                    # y tensor with shape (N,W,H)
-                    y = torch.squeeze(y, dim=1)
-                    # y tensor with shape (N,W,H,C)
-                    y = F.one_hot(y, self.numclass)
-                    # y tensor with shape (N,C,W,H)
-                    y = y.permute(0, 3, 1, 2)
                     # send the input to the device
                     (x, y) = (x.to(self.device), y.to(self.device))
                     # make the predictions and calculate the validation loss
@@ -399,6 +388,7 @@ class MutilVNet2dModel(object):
             avgValidationLoss = torch.mean(torch.stack(totalValidationLoss))
             avgTrainAccu = torch.mean(torch.stack(totalTrainAccu))
             avgValidationAccu = torch.mean(torch.stack(totalValiadtionAccu))
+            lr_scheduler.step(avgValidationLoss)
             # 4.6、update our training history
             H["train_loss"].append(avgTrainLoss.cpu().detach().numpy())
             H["valdation_loss"].append(avgValidationLoss.cpu().detach().numpy())
@@ -549,7 +539,8 @@ class BinaryVNet3dModel(object):
             showpixelvalue = showpixelvalue // (self.numclass - 1)
         # 1、initialize loss function and optimizer
         lossFunc = self._loss_function(self.loss_name)
-        opt = optim.Adam(self.model.parameters(), lr=lr)
+        opt = optim.Adam(self.model.parameters(), lr=lr, weight_decay=1e-4)
+        lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(opt, 'min', patience=2, verbose=True)
         # 2、load data train and validation dataset
         train_loader = self._dataloder(trainimage, trainmask, True)
         val_loader = self._dataloder(validationimage, validationmask)
@@ -621,6 +612,7 @@ class BinaryVNet3dModel(object):
             avgValidationLoss = torch.mean(torch.stack(totalValidationLoss))
             avgTrainAccu = torch.mean(torch.stack(totalTrainAccu))
             avgValidationAccu = torch.mean(torch.stack(totalValiadtionAccu))
+            lr_scheduler.step(avgValidationLoss)
             # 4.6、update our training history
             H["train_loss"].append(avgTrainLoss.cpu().detach().numpy())
             H["valdation_loss"].append(avgValidationLoss.cpu().detach().numpy())
@@ -779,7 +771,8 @@ class MutilVNet3dModel(object):
             showpixelvalue = showpixelvalue // (self.numclass - 1)
         # 1、initialize loss function and optimizer
         lossFunc = self._loss_function(self.loss_name)
-        opt = optim.Adam(self.model.parameters(), lr=lr)
+        opt = optim.Adam(self.model.parameters(), lr=lr, weight_decay=1e-4)
+        lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(opt, 'min', patience=2, verbose=True)
         # 2、load data train and validation dataset
         train_loader = self._dataloder(trainimage, trainmask, True)
         val_loader = self._dataloder(validationimage, validationmask)
@@ -805,13 +798,6 @@ class MutilVNet3dModel(object):
                 # y should tensor with shape (N,C,D,W,H),
                 # if have mutil label y should one-hot,if only one label,the C is one
                 y = batch['label']
-                # one-hot encoding
-                # y tensor with shape (N,D,W,H)
-                y = torch.squeeze(y, dim=1)
-                # y tensor with shape (N,D,W,H,C)
-                y = F.one_hot(y, self.numclass)
-                # y tensor with shape (N,C,D,W,H)
-                y = y.permute(0, 4, 1, 2, 3)
                 # send the input to the device
                 x, y = x.to(self.device), y.to(self.device)
                 # perform a forward pass and calculate the training loss and accu
@@ -840,13 +826,6 @@ class MutilVNet3dModel(object):
                     x = batch['image']
                     # y should tensor with shape (N,C,W,H)
                     y = batch['label']
-                    # one-hot encoding
-                    # y tensor with shape (N,D,W,H)
-                    y = torch.squeeze(y, dim=1)
-                    # y tensor with shape (N,D,W,H,C)
-                    y = F.one_hot(y, self.numclass)
-                    # y tensor with shape (N,C,D,W,H)
-                    y = y.permute(0, 4, 1, 2, 3)
                     # send the input to the device
                     (x, y) = (x.to(self.device), y.to(self.device))
                     # make the predictions and calculate the validation loss
@@ -864,6 +843,7 @@ class MutilVNet3dModel(object):
             avgValidationLoss = torch.mean(torch.stack(totalValidationLoss))
             avgTrainAccu = torch.mean(torch.stack(totalTrainAccu))
             avgValidationAccu = torch.mean(torch.stack(totalValiadtionAccu))
+            lr_scheduler.step(avgValidationLoss)
             # 4.6、update our training history
             H["train_loss"].append(avgTrainLoss.cpu().detach().numpy())
             H["valdation_loss"].append(avgValidationLoss.cpu().detach().numpy())
