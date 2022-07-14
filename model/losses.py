@@ -202,7 +202,7 @@ class MutilDiceLoss(nn.Module):
         intersection = torch.sum(y_true * y_pred, dim=(0, 2))
         denominator = torch.sum(y_true + y_pred, dim=(0, 2))
         gen_dice_coef = ((2. * intersection + smooth) / (denominator + smooth)).clamp_min(eps)
-        loss = 1 - gen_dice_coef
+        loss = - gen_dice_coef
         # Dice loss is undefined for non-empty classes
         # So we zero contribution of channel that does not have true pixels
         # NOTE: A better workaround would be to use loss term `mean(y_pred)`
@@ -212,27 +212,11 @@ class MutilDiceLoss(nn.Module):
         return (loss * self.alpha).mean()
 
 
-class MutilCrossEntropyDiceLoss(nn.Module):
-    """
-    mutil ce and dice
-    """
-
-    def __init__(self, alpha):
-        super(MutilCrossEntropyDiceLoss, self).__init__()
-        self.alpha = alpha
-
-    def forward(self, y_pred_logits, y_true):
-        diceloss = MutilDiceLoss(self.alpha)
-        dice = diceloss(y_pred_logits, y_true)
-        bceloss = MutilCrossEntropyLoss(self.alpha)
-        bce = bceloss(y_pred_logits, y_true)
-        return bce + dice
-
-
 class LovaszLoss(nn.Module):
     """
     mutil LovaszLoss
     """
+
     def __init__(self, per_image=False, ignore=None):
         super(LovaszLoss, self).__init__()
         self.ignore = ignore

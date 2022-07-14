@@ -154,11 +154,11 @@ class VNet2d(nn.Module):
 
         self.down_tr32 = DownTransition2d(16, 32, 2, elu)
         self.down_tr64 = DownTransition2d(32, 64, 3, elu)
-        self.down_tr128 = DownTransition2d(64, 128, 3, elu, dropout=True)
-        self.down_tr256 = DownTransition2d(128, 256, 3, elu, dropout=True)
+        self.down_tr128 = DownTransition2d(64, 128, 3, elu)
+        self.down_tr256 = DownTransition2d(128, 256, 3, elu)
 
-        self.up_tr256 = UpTransition2d(256, 128, 3, elu, dropout=True)
-        self.up_tr128 = UpTransition2d(128, 64, 3, elu, dropout=True)
+        self.up_tr256 = UpTransition2d(256, 128, 3, elu)
+        self.up_tr128 = UpTransition2d(128, 64, 3, elu)
         self.up_tr64 = UpTransition2d(64, 32, 2, elu)
         self.up_tr32 = UpTransition2d(32, 16, 1, elu)
 

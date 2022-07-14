@@ -154,11 +154,11 @@ class VNet3d(nn.Module):
 
         self.down_tr32 = DownTransition3d(16, 32, 2, elu)
         self.down_tr64 = DownTransition3d(32, 64, 3, elu)
-        self.down_tr128 = DownTransition3d(64, 128, 3, elu, dropout=True)
-        self.down_tr256 = DownTransition3d(128, 256, 3, elu, dropout=True)
+        self.down_tr128 = DownTransition3d(64, 128, 3, elu)
+        self.down_tr256 = DownTransition3d(128, 256, 3, elu)
 
-        self.up_tr256 = UpTransition3d(256, 128, 3, elu, dropout=True)
-        self.up_tr128 = UpTransition3d(128, 64, 3, elu, dropout=True)
+        self.up_tr256 = UpTransition3d(256, 128, 3, elu)
+        self.up_tr128 = UpTransition3d(128, 64, 3, elu)
         self.up_tr64 = UpTransition3d(64, 32, 2, elu)
         self.up_tr32 = UpTransition3d(32, 16, 1, elu)
 

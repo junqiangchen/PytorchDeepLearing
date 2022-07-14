@@ -5,7 +5,7 @@ from networks.Unet3d import UNet3d
 from .dataset import datasetModelSegwithopencv, datasetModelSegwithnpy
 from torch.utils.data import DataLoader
 from .losses import BinaryDiceLoss, BinaryFocalLoss, BinaryCrossEntropyLoss, BinaryCrossEntropyDiceLoss, \
-    MutilDiceLoss, MutilFocalLoss, MutilCrossEntropyLoss, MutilCrossEntropyDiceLoss
+    MutilDiceLoss, MutilFocalLoss, MutilCrossEntropyLoss
 import torch.optim as optim
 import numpy as np
 from tqdm import tqdm
@@ -709,7 +709,8 @@ class MutilUNet3dModel(object):
         self.image_channel = image_channel
         self.numclass = numclass
 
-        self.alpha = [1.] * self.numclass
+        # self.alpha = [1.] * self.numclass
+        self.alpha = [1., 5., 1., 5., 3.]
         self.gamma = 3
 
         self.use_cuda = use_cuda
@@ -745,8 +746,6 @@ class MutilUNet3dModel(object):
             return MutilDiceLoss(alpha=self.alpha)
         if lossname is 'MutilFocalLoss':
             return MutilFocalLoss(alpha=self.alpha, gamma=self.gamma)
-        if lossname is 'MutilCrossEntropyDiceLoss':
-            return MutilCrossEntropyDiceLoss(alpha=self.alpha)
 
     def _accuracy_function(self, accuracyname, input, target):
         if accuracyname is 'dice':
@@ -772,8 +771,9 @@ class MutilUNet3dModel(object):
             showpixelvalue = showpixelvalue // (self.numclass - 1)
         # 1、initialize loss function and optimizer
         lossFunc = self._loss_function(self.loss_name)
-        opt = optim.Adam(self.model.parameters(), lr=lr, weight_decay=1e-4)
-        lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(opt, 'min', patience=2, verbose=True)
+        # opt = optim.Adam(self.model.parameters(), lr=lr, weight_decay=1e-4)
+        opt = optim.Adam(self.model.parameters(), lr=lr)
+        lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(opt, 'min', patience=10, verbose=True)
         # 2、load data train and validation dataset
         train_loader = self._dataloder(trainimage, trainmask, True)
         val_loader = self._dataloder(validationimage, validationmask)
@@ -793,7 +793,7 @@ class MutilUNet3dModel(object):
             totalValidationLoss = []
             totalValiadtionAccu = []
             # 4.3、loop over the training set
-            for batch in train_loader:
+            for batch in val_loader:
                 # x should tensor with shape (N,C,D,W,H)
                 x = batch['image']
                 # y should tensor with shape (N,C,D,W,H),
@@ -805,6 +805,9 @@ class MutilUNet3dModel(object):
                 pred_logit, pred = self.model(x)
                 loss = lossFunc(pred_logit, y)
                 accu = self._accuracy_function(self.accuracyname, pred, y)
+                savepath = model_dir + '/' + str(e + 1) + "_train_EPOCH_"
+                save_images3d(torch.argmax(pred[0], 0), y[0], showwind, savepath,
+                              pixelvalue=showpixelvalue)
                 # first, zero out any previously accumulated gradients,
                 # then perform backpropagation,
                 # and then update model parameters
@@ -841,7 +844,7 @@ class MutilUNet3dModel(object):
             avgValidationLoss = torch.mean(torch.stack(totalValidationLoss))
             avgTrainAccu = torch.mean(torch.stack(totalTrainAccu))
             avgValidationAccu = torch.mean(torch.stack(totalValiadtionAccu))
-            lr_scheduler.step(avgValidationLoss)
+            # lr_scheduler.step(avgValidationLoss)
             # 4.6、update our training history
             H["train_loss"].append(avgTrainLoss.cpu().detach().numpy())
             H["valdation_loss"].append(avgValidationLoss.cpu().detach().numpy())

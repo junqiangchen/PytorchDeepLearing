@@ -117,13 +117,14 @@ class ResNet2d(nn.Module):
 
         self.down_tr32 = DownTransition2d(16, 32, 2, elu)
         self.down_tr64 = DownTransition2d(32, 64, 3, elu)
-        self.down_tr128 = DownTransition2d(64, 128, 3, elu, dropout=True)
-        self.down_tr256 = DownTransition2d(128, 256, 3, elu, dropout=True)
+        self.down_tr128 = DownTransition2d(64, 128, 3, elu)
+        self.down_tr256 = DownTransition2d(128, 256, 3, elu)
 
         self.avg = GlobalAveragePooling()
 
         self.fc_layers = nn.Sequential(
-            nn.Linear(256, 128), nn.ReLU(inplace=True), nn.Dropout(),
+            nn.Linear(256, 128),
+            nn.ReLU(inplace=True),
             nn.Linear(128, self.numclass))
 
     def forward(self, x):
