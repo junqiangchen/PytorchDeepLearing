@@ -71,7 +71,8 @@ class UNet3d(nn.Module):
                     kernel_size=3,
                     padding=1,
                     bias=False, ),),
-                (name + "norm1", nn.BatchNorm3d(num_features=features)),
+                # (name + "norm1", nn.BatchNorm3d(num_features=features)),
+                (name + "norm1", nn.GroupNorm(num_groups=8, num_channels=features)),
                 (name + "relu1", nn.ReLU(inplace=True)),
                 (name + "conv2", nn.Conv3d(
                     in_channels=features,
@@ -79,7 +80,8 @@ class UNet3d(nn.Module):
                     kernel_size=3,
                     padding=1,
                     bias=False, ),),
-                (name + "norm2", nn.BatchNorm3d(num_features=features)),
+                # (name + "norm2", nn.BatchNorm3d(num_features=features)),
+                (name + "norm2", nn.GroupNorm(num_groups=8, num_channels=features)),
                 (name + "relu2", nn.ReLU(inplace=True)),
                 (name + "dropout2", nn.Dropout3d()),
             ]))
@@ -91,7 +93,8 @@ class UNet3d(nn.Module):
                     kernel_size=3,
                     padding=1,
                     bias=False, ),),
-                (name + "norm1", nn.BatchNorm3d(num_features=features)),
+                # (name + "norm1", nn.BatchNorm3d(num_features=features)),
+                (name + "norm1", nn.GroupNorm(num_groups=8, num_channels=features)),
                 (name + "relu1", nn.ReLU(inplace=True)),
                 (name + "conv2", nn.Conv3d(
                     in_channels=features,
@@ -99,7 +102,8 @@ class UNet3d(nn.Module):
                     kernel_size=3,
                     padding=1,
                     bias=False, ),),
-                (name + "norm2", nn.BatchNorm3d(num_features=features)),
+                # (name + "norm2", nn.BatchNorm3d(num_features=features)),
+                (name + "norm2", nn.GroupNorm(num_groups=8, num_channels=features)),
                 (name + "relu2", nn.ReLU(inplace=True)),
             ]))
         return block

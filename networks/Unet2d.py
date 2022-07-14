@@ -70,7 +70,7 @@ class UNet2d(nn.Module):
                 kernel_size=3,
                 padding=1,
                 bias=False, ),),
-            (name + "norm1", nn.BatchNorm2d(num_features=features)),
+            (name + "norm1", nn.GroupNorm(8, features)),
             (name + "relu1", nn.ReLU(inplace=True)),
             (
                 name + "conv2", nn.Conv2d(
@@ -81,6 +81,6 @@ class UNet2d(nn.Module):
                     bias=False,
                 ),
             ),
-            (name + "norm2", nn.BatchNorm2d(num_features=features)),
+            (name + "norm2", nn.GroupNorm(8, features)),
             (name + "relu2", nn.ReLU(inplace=True)),
         ]))

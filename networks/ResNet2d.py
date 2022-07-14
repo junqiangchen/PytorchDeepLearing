@@ -53,7 +53,7 @@ class InputTransition2d(nn.Module):
         super(InputTransition2d, self).__init__()
         self.conv1 = nn.Conv2d(inChans, outChans, kernel_size=3, padding=1)
         self.conv2 = nn.Conv2d(inChans, outChans, kernel_size=1)
-        self.bn1 = nn.BatchNorm2d(outChans)
+        self.bn1 = nn.GroupNorm(8, outChans)
         self.relu1 = ELUCons(elu, outChans)
 
     def forward(self, x):
@@ -73,7 +73,7 @@ class DownTransition2d(nn.Module):
     def __init__(self, inChans, outChans, nConvs, elu, dropout=False):
         super(DownTransition2d, self).__init__()
         self.down_conv = nn.Conv2d(inChans, outChans, kernel_size=2, stride=2)
-        self.bn1 = nn.BatchNorm2d(outChans)
+        self.bn1 = nn.GroupNorm(8, outChans)
         self.do1 = passthrough
         self.relu1 = ELUCons(elu, outChans)
         self.relu2 = ELUCons(elu, outChans)

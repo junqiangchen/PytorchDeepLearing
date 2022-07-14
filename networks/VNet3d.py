@@ -53,7 +53,7 @@ class InputTransition3d(nn.Module):
         super(InputTransition3d, self).__init__()
         self.conv1 = nn.Conv3d(inChans, outChans, kernel_size=3, padding=1)
         self.conv2 = nn.Conv3d(inChans, outChans, kernel_size=1)
-        self.bn1 = nn.BatchNorm3d(outChans)
+        self.bn1 = nn.GroupNorm(8, outChans)
         self.relu1 = ELUCons(elu, outChans)
 
     def forward(self, x):
@@ -73,7 +73,7 @@ class DownTransition3d(nn.Module):
     def __init__(self, inChans, outChans, nConvs, elu, dropout=False):
         super(DownTransition3d, self).__init__()
         self.down_conv = nn.Conv3d(inChans, outChans, kernel_size=2, stride=2)
-        self.bn1 = nn.BatchNorm3d(outChans)
+        self.bn1 = nn.GroupNorm(8, outChans)
         self.do1 = passthrough
         self.relu1 = ELUCons(elu, outChans)
         self.relu2 = ELUCons(elu, outChans)
@@ -94,7 +94,7 @@ class UpTransition3d(nn.Module):
     def __init__(self, inChans, outChans, nConvs, elu, dropout=False):
         super(UpTransition3d, self).__init__()
         self.up_conv = nn.ConvTranspose3d(inChans, outChans, kernel_size=2, stride=2)
-        self.bn = nn.BatchNorm3d(outChans)
+        self.bn = nn.GroupNorm(8, outChans)
         self.do1 = passthrough
         self.do2 = nn.Dropout3d()
         self.relu = ELUCons(elu, outChans)
