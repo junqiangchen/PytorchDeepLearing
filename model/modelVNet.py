@@ -98,8 +98,8 @@ class BinaryVNet2dModel(object):
             showpixelvalue = showpixelvalue // (self.numclass - 1)
         # 1、initialize loss function and optimizer
         lossFunc = self._loss_function(self.loss_name)
-        opt = optim.Adam(self.model.parameters(), lr=lr, weight_decay=1e-4)
-        lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(opt, 'min', patience=2, verbose=True)
+        opt = optim.Adam(self.model.parameters(), lr=lr)
+        #lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(opt, 'min', patience=2, verbose=True)
         # 2、load data train and validation dataset
         train_loader = self._dataloder(trainimage, trainmask, True)
         val_loader = self._dataloder(validationimage, validationmask)
@@ -171,7 +171,7 @@ class BinaryVNet2dModel(object):
             avgValidationLoss = torch.mean(torch.stack(totalValidationLoss))
             avgTrainAccu = torch.mean(torch.stack(totalTrainAccu))
             avgValidationAccu = torch.mean(torch.stack(totalValiadtionAccu))
-            lr_scheduler.step(avgValidationLoss)
+            #lr_scheduler.step(avgValidationLoss)
             # 4.6、update our training history
             H["train_loss"].append(avgTrainLoss.cpu().detach().numpy())
             H["valdation_loss"].append(avgValidationLoss.cpu().detach().numpy())
@@ -318,8 +318,8 @@ class MutilVNet2dModel(object):
             showpixelvalue = showpixelvalue // (self.numclass - 1)
         # 1、initialize loss function and optimizer
         lossFunc = self._loss_function(self.loss_name)
-        opt = optim.Adam(self.model.parameters(), lr=lr, weight_decay=1e-4)
-        lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(opt, 'min', patience=2, verbose=True)
+        opt = optim.Adam(self.model.parameters(), lr=lr)
+        #lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(opt, 'min', patience=2, verbose=True)
         # 2、load data train and validation dataset
         train_loader = self._dataloder(trainimage, trainmask, True)
         val_loader = self._dataloder(validationimage, validationmask)
@@ -388,7 +388,6 @@ class MutilVNet2dModel(object):
             avgValidationLoss = torch.mean(torch.stack(totalValidationLoss))
             avgTrainAccu = torch.mean(torch.stack(totalTrainAccu))
             avgValidationAccu = torch.mean(torch.stack(totalValiadtionAccu))
-            lr_scheduler.step(avgValidationLoss)
             # 4.6、update our training history
             H["train_loss"].append(avgTrainLoss.cpu().detach().numpy())
             H["valdation_loss"].append(avgValidationLoss.cpu().detach().numpy())
@@ -539,8 +538,8 @@ class BinaryVNet3dModel(object):
             showpixelvalue = showpixelvalue // (self.numclass - 1)
         # 1、initialize loss function and optimizer
         lossFunc = self._loss_function(self.loss_name)
-        opt = optim.Adam(self.model.parameters(), lr=lr, weight_decay=1e-4)
-        lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(opt, 'min', patience=2, verbose=True)
+        opt = optim.Adam(self.model.parameters(), lr=lr)
+        #lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(opt, 'min', patience=2, verbose=True)
         # 2、load data train and validation dataset
         train_loader = self._dataloder(trainimage, trainmask, True)
         val_loader = self._dataloder(validationimage, validationmask)
@@ -612,7 +611,7 @@ class BinaryVNet3dModel(object):
             avgValidationLoss = torch.mean(torch.stack(totalValidationLoss))
             avgTrainAccu = torch.mean(torch.stack(totalTrainAccu))
             avgValidationAccu = torch.mean(torch.stack(totalValiadtionAccu))
-            lr_scheduler.step(avgValidationLoss)
+            #lr_scheduler.step(avgValidationLoss)
             # 4.6、update our training history
             H["train_loss"].append(avgTrainLoss.cpu().detach().numpy())
             H["valdation_loss"].append(avgValidationLoss.cpu().detach().numpy())
@@ -771,8 +770,8 @@ class MutilVNet3dModel(object):
             showpixelvalue = showpixelvalue // (self.numclass - 1)
         # 1、initialize loss function and optimizer
         lossFunc = self._loss_function(self.loss_name)
-        opt = optim.Adam(self.model.parameters(), lr=lr, weight_decay=1e-4)
-        lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(opt, 'min', patience=2, verbose=True)
+        opt = optim.Adam(self.model.parameters(), lr=lr)
+        #lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(opt, 'min', patience=2, verbose=True)
         # 2、load data train and validation dataset
         train_loader = self._dataloder(trainimage, trainmask, True)
         val_loader = self._dataloder(validationimage, validationmask)
@@ -843,7 +842,7 @@ class MutilVNet3dModel(object):
             avgValidationLoss = torch.mean(torch.stack(totalValidationLoss))
             avgTrainAccu = torch.mean(torch.stack(totalTrainAccu))
             avgValidationAccu = torch.mean(torch.stack(totalValiadtionAccu))
-            lr_scheduler.step(avgValidationLoss)
+            #lr_scheduler.step(avgValidationLoss)
             # 4.6、update our training history
             H["train_loss"].append(avgTrainLoss.cpu().detach().numpy())
             H["valdation_loss"].append(avgValidationLoss.cpu().detach().numpy())
