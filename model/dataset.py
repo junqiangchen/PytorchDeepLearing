@@ -61,8 +61,8 @@ class datasetModelClassifywithopencv(Dataset):
         image = cv2.imread(imagepath, 0)
         # resize image to fixed size
         image = cv2.resize(image, (self.targetsize[1], self.targetsize[2]))
-        # normalization image to 0-1
-        image = image / 255.
+        # normalization image to zscore
+        image = (image - image.mean()) / image.std()
         # transpose (H,W,C) order to (C,H,W) order
         H, W = np.shape(image)[0], np.shape(image)[1]
         image = np.reshape(image, (H, W, 1))
@@ -138,8 +138,8 @@ class datasetModelSegwithopencv(Dataset):
         image = cv2.imread(imagepath, 0)
         # resize image to fixed size
         image = cv2.resize(image, (self.targetsize[1], self.targetsize[2]))
-        # normalization image to 0-1
-        image = image / 255.
+        # normalization image to zscore
+        image = (image - image.mean()) / image.std()
         # transpose (H,W,C) order to (C,H,W) order
         H, W = np.shape(image)[0], np.shape(image)[1]
         image = np.reshape(image, (H, W, 1))
@@ -152,7 +152,6 @@ class datasetModelSegwithopencv(Dataset):
         labelpath = self.labels[index]
         label = cv2.imread(labelpath, 0)
         label = cv2.resize(label, (self.targetsize[1], self.targetsize[2]))
-        label = label / 255.
         # transpose (H,W,C) order to (C,H,W) order
         label = np.reshape(label, (H, W))
         label_tensor = torch.as_tensor(label).long()

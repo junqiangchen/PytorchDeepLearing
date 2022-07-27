@@ -218,8 +218,6 @@ class BinaryResNet2dModel(object):
         imageresize = np.reshape(imageresize, (H, W, 1))
         imageresize = np.transpose(imageresize, (2, 0, 1))
         out_mask = self.predict(imageresize)
-        # resize mask to src image size
-        out_mask = cv2.resize(out_mask, image.shape)
         return out_mask
 
     def clear_GPU_cache(self):
@@ -427,8 +425,6 @@ class MutilResNet2dModel(object):
         imageresize = np.reshape(imageresize, (H, W, 1))
         imageresize = np.transpose(imageresize, (2, 0, 1))
         out_mask = self.predict(imageresize)
-        # resize mask to src image size
-        out_mask = cv2.resize(out_mask, image.shape)
         return out_mask
 
     def clear_GPU_cache(self):
