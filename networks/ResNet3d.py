@@ -1,37 +1,11 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-
-
-def passthrough(x, **kwargs):
-    return x
-
-
-def ELUCons(elu, nchan):
-    if elu:
-        return nn.ELU(inplace=True)
-    else:
-        return nn.PReLU(nchan)
-
-
-# normalization between sub-volumes is necessary
-# for good performance
-class ContBatchNorm3d(nn.modules.batchnorm._BatchNorm):
-    def __init__(self, num_features=16):
-        super(ContBatchNorm3d, self).__init__(num_features=16)
-        self.num_features = num_features
-
-    def forward(self, input):
-        self._check_input_dim(input)
-        return F.batch_norm(
-            input, self.running_mean, self.running_var, self.weight, self.bias,
-            True, self.momentum, self.eps)
 
 
 class LUConv3d(nn.Module):
-    def __init__(self, nchan, elu):
+    def __init__(self, nchan):
         super(LUConv3d, self).__init__()
-        self.relu1 = ELUCons(elu, nchan)
+        self.relu1 = nn.ReLU(inplace=True)
         self.conv1 = nn.Conv3d(nchan, nchan, kernel_size=3, padding=1)
         self.bn1 = nn.GroupNorm(8, nchan)
 
@@ -40,52 +14,46 @@ class LUConv3d(nn.Module):
         return out
 
 
-def _make_nConv3d(nchan, depth, elu):
+def _make_nConv3d(nchan, depth):
     layers = []
     for _ in range(depth):
-        layers.append(LUConv3d(nchan, elu))
+        layers.append(LUConv3d(nchan))
     return nn.Sequential(*layers)
 
 
 class InputTransition3d(nn.Module):
-    def __init__(self, inChans, outChans, elu):
+    def __init__(self, inChans, outChans):
         super(InputTransition3d, self).__init__()
         self.conv1 = nn.Conv3d(inChans, outChans, kernel_size=3, padding=1)
         self.conv2 = nn.Conv3d(inChans, outChans, kernel_size=1)
         self.bn1 = nn.GroupNorm(8, outChans)
-        self.relu1 = ELUCons(elu, outChans)
+        self.relu1 = nn.ReLU(inplace=True)
 
     def forward(self, x):
         # do we want a PRELU here as well?
-        out = self.conv1(x)
-        out = self.bn1(out)
+        out = self.relu1(self.bn1(self.conv1(x)))
         # convert input to 16 channels
-        x16 = self.conv2(x)
+        x16 = self.relu1(self.bn1(self.conv2(x)))
         # print("x16", x16.shape)
         # print("out:", out.shape)
-        out = self.relu1(torch.add(out, x16))
+        out = torch.add(out, x16)
         # assert 1>3
         return out
 
 
 class DownTransition3d(nn.Module):
-    def __init__(self, inChans, outChans, nConvs, elu, dropout=False):
+    def __init__(self, inChans, outChans, nConvs):
         super(DownTransition3d, self).__init__()
         self.down_conv = nn.Conv3d(inChans, outChans, kernel_size=2, stride=2)
         self.bn1 = nn.GroupNorm(8, outChans)
-        self.do1 = passthrough
-        self.relu1 = ELUCons(elu, outChans)
-        self.relu2 = ELUCons(elu, outChans)
-        if dropout:
-            self.do1 = nn.Dropout3d()
-        self.ops = _make_nConv3d(outChans, nConvs, elu)
+        self.relu1 = nn.ReLU(inplace=True)
+        self.ops = _make_nConv3d(outChans, nConvs)
 
     def forward(self, x):
         down = self.relu1(self.bn1(self.down_conv(x)))
         out = self.do1(down)
-
         out = self.ops(out)
-        out = self.relu2(torch.add(out, down))
+        out = torch.add(out, down)
         return out
 
 
@@ -107,17 +75,17 @@ class ResNet3d(nn.Module):
 
     # the number of convolutions in each layer corresponds
     # to what is in the actual prototxt, not the intent
-    def __init__(self, image_channel, numclass, elu=True):
+    def __init__(self, image_channel, numclass):
         super(ResNet3d, self).__init__()
         self.image_channel = image_channel
         self.numclass = numclass
 
-        self.in_tr = InputTransition3d(self.image_channel, 16, elu)
+        self.in_tr = InputTransition3d(self.image_channel, 16)
 
-        self.down_tr32 = DownTransition3d(16, 32, 2, elu)
-        self.down_tr64 = DownTransition3d(32, 64, 3, elu)
-        self.down_tr128 = DownTransition3d(64, 128, 3, elu)
-        self.down_tr256 = DownTransition3d(128, 256, 3, elu)
+        self.down_tr32 = DownTransition3d(16, 32, 2)
+        self.down_tr64 = DownTransition3d(32, 64, 3)
+        self.down_tr128 = DownTransition3d(64, 128, 3)
+        self.down_tr256 = DownTransition3d(128, 256, 3)
 
         self.avg = GlobalAveragePooling()
 
