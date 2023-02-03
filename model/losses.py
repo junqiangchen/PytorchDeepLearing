@@ -311,6 +311,23 @@ class MutilDiceLoss(nn.Module):
         mask = y_true.sum((0, 2)) > 0
         loss *= mask.to(loss.dtype)
         return (loss * self.alpha).mean()
+    
+
+class MutilCrossEntropyDiceLoss(nn.Module):
+    """
+    Mutil Dice loss + CE loss
+    """
+
+    def __init__(self, alpha):
+        super(MutilCrossEntropyDiceLoss, self).__init__()
+        self.alpha = alpha
+
+    def forward(self, y_pred_logits, y_true):
+        diceloss = MutilDiceLoss(self.alpha)
+        dice = diceloss(y_pred_logits, y_true)
+        celoss = MutilCrossEntropyLoss(self.alpha)
+        ce = celoss(y_pred_logits, y_true)
+        return ce + dice
 
 
 class MutilELDiceLoss(nn.Module):
