@@ -5,6 +5,7 @@ import torch.nn.functional as F
 import math
 import scipy.spatial as spatial
 import scipy.ndimage.morphology as morphology
+from skimage.metrics import structural_similarity as compare_ssim
 
 
 class Seg_Metirc3d():
@@ -195,21 +196,105 @@ def multiclass_dice_coeffv2(input: Tensor, target: Tensor):
     intersection = torch.sum(y_true_nobk * y_pred_nobk, dim=(0, 2))
     denominator = torch.sum(y_true_nobk + y_pred_nobk, dim=(0, 2))
     gen_dice_coef = ((2. * intersection + smooth) / (denominator + smooth)).clamp_min(eps)
+    mask = y_true_nobk.sum((0, 2)) > 0
+    gen_dice_coef *= mask.to(gen_dice_coef.dtype)
     return gen_dice_coef.mean()
 
 
 def multiclass_iou_coeff(input: Tensor, target: Tensor):
+    Batchsize, Channel = input.shape[0], input.shape[1]
+    y_pred = input.float().contiguous().view(Batchsize, Channel, -1)
+    y_true = target.long().contiguous().view(Batchsize, -1)
+    y_true = F.one_hot(y_true, Channel)  # N,H*W -> N,H*W, C
+    y_true = y_true.permute(0, 2, 1)  # H, C, H*W
     assert input.size() == target.size()
     union = 0
     # remove backgroud region
     for channel in range(1, input.shape[1]):
-        union += iou_coeff(input[:, channel, ...], target[:, channel, ...])
+        union += iou_coeff(y_pred[:, channel, ...], y_true[:, channel, ...])
     return union / (input.shape[1] - 1)
+
+
+def multiclass_iou_coeffv2(input: Tensor, target: Tensor):
+    Batchsize, Channel = input.shape[0], input.shape[1]
+    y_pred = input.float().contiguous().view(Batchsize, Channel, -1)
+    y_true = target.long().contiguous().view(Batchsize, -1)
+    y_true = F.one_hot(y_true, Channel)  # N,H*W -> N,H*W, C
+    y_true = y_true.permute(0, 2, 1)  # H, C, H*W
+    assert y_pred.size() == y_true.size()
+    smooth = 1e-5
+    eps = 1e-7
+    # remove backgroud region
+    y_pred_nobk = y_pred[:, 1:Channel, ...]
+    y_true_nobk = y_true[:, 1:Channel, ...]
+    intersection = (y_pred_nobk * y_true_nobk)
+    union = (intersection.sum(1) + smooth) / (
+            y_pred_nobk.sum(1) + y_true_nobk.sum(1) - intersection.sum(1) + smooth).clamp_min(eps)
+    mask = y_true_nobk.sum((0, 2)) > 0
+    union *= mask.to(union.dtype)
+    return union.mean()
 
 
 # classification metric
 
 def calc_accuracy(input: Tensor, target: Tensor):
     n = input.size(0)
-    acc = torch.sum(input == target).sum() / n
+    acc = torch.sum(input == target).sum().float() / n
     return acc
+
+
+def calc_mse(input: Tensor, target: Tensor):
+    num = target.size(0)
+    input = input.view(num, -1).float()
+    target = target.view(num, -1).float()
+    mse = (input - target) ** 2
+    return torch.mean(mse)
+
+
+def calc_nrmse(input: Tensor, target: Tensor):
+    num = target.size(0)
+    input = input.view(num, -1).float()
+    target = target.view(num, -1).float()
+    mse = (input - target) ** 2
+    mse = torch.mean(mse)
+    mse = torch.sqrt(mse)
+    eps = 1e-7
+    nrmse = 0
+    for batch in range(num):
+        min = torch.min(target[batch])
+        max = torch.max(target[batch])
+        nrmse += mse / (max - min + eps)
+    return nrmse / num
+
+
+# image quality metric
+def calc_psnr(input: Tensor, target: Tensor, mean: Tensor, std: Tensor):
+    """Peak Signal to Noise Ratio
+    PSNR = 20 * log10(MAXp) - 10 * log10(MSE)"""
+    num = target.size(0)
+    input = input.view(num, -1).float()
+    target = target.view(num, -1).float()
+    eps = 1e-7
+    psnr = 0
+    for batch in range(num):
+        mse = torch.mean((input[batch] * std[batch] - target[batch] * std[batch]) ** 2)
+        max = torch.max(target[batch] * std[batch] + mean[batch])
+        psnr += 10 * torch.log10(max ** 2 / mse + eps)
+    return psnr / num
+
+
+def calc_ssim(input: Tensor, target: Tensor, mean: Tensor, std: Tensor):
+    """ssim"""
+    num = target.size(0)
+    input = input.view(num, -1).float()
+    target = target.view(num, -1).float()
+    eps = 1e-7
+    ssim = 0
+    for batch in range(num):
+        real_image = (target[batch] * std[batch] + mean[batch]) / (
+                torch.max(target[batch] * std[batch] + mean[batch]) + eps)
+        pred_image = (input[batch] * std[batch] + mean[batch]) / (torch.max(
+            input[batch] * std[batch] + mean[batch]) + eps)
+        ssim += compare_ssim(real_image.detach().cpu().squeeze().numpy().astype(np.float16),
+                             pred_image.detach().cpu().squeeze().numpy().astype(np.float16))
+    return ssim / num
