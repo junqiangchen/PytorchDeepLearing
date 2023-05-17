@@ -250,7 +250,13 @@ class MutilCrossEntropyLoss(nn.Module):
         self.alpha = alpha
 
     def forward(self, y_pred_logits, y_true):
-        loss = F.cross_entropy(y_pred_logits.float(), y_true.long(), weight=self.alpha)
+        Batchsize, Channel = y_pred_logits.shape[0], y_pred_logits.shape[1]
+        y_pred_logits = y_pred_logits.float().contiguous().view(Batchsize, Channel, -1)
+        y_true = y_true.long().contiguous().view(Batchsize, -1)
+        y_true_onehot = F.one_hot(y_true, Channel)  # N,H*W -> N,H*W, C
+        y_true_onehot = y_true_onehot.permute(0, 2, 1).float()  # H, C, H*W
+        mask = y_true_onehot.sum((0, 2)) > 0
+        loss = F.cross_entropy(y_pred_logits.float(), y_true.long(), weight=mask.to(y_pred_logits.dtype))
         return loss
 
 
@@ -266,7 +272,13 @@ class MutilFocalLoss(nn.Module):
 
     def forward(self, y_pred_logits, y_true):
         if torch:
-            CE_loss = nn.CrossEntropyLoss(reduction='none', weight=self.alpha)
+            Batchsize, Channel = y_pred_logits.shape[0], y_pred_logits.shape[1]
+            y_pred_logits = y_pred_logits.float().contiguous().view(Batchsize, Channel, -1)
+            y_true = y_true.long().contiguous().view(Batchsize, -1)
+            y_true_onehot = F.one_hot(y_true, Channel)  # N,H*W -> N,H*W, C
+            y_true_onehot = y_true_onehot.permute(0, 2, 1).float()  # H, C, H*W
+            mask = y_true_onehot.sum((0, 2)) > 0
+            CE_loss = nn.CrossEntropyLoss(reduction='none', weight=mask.to(y_pred_logits.dtype))
             logpt = CE_loss(y_pred_logits.float(), y_true.long())
             pt = torch.exp(-logpt)
             loss = (((1 - pt) ** self.gamma) * logpt).mean()
