@@ -322,7 +322,7 @@ class MutilDiceLoss(nn.Module):
         # for this case, however it will be a modified jaccard loss
         mask = y_true.sum((0, 2)) > 0
         loss *= mask.to(loss.dtype)
-        return (loss * self.alpha).mean()
+        return (loss * self.alpha).sum() / torch.count_nonzero(mask)
     
 
 class MutilCrossEntropyDiceLoss(nn.Module):
@@ -379,7 +379,7 @@ class MutilELDiceLoss(nn.Module):
         mask = y_true.sum((0, 2)) > 0
         gen_dice_coef *= mask.to(gen_dice_coef.dtype)
         dice = gen_dice_coef * self.alpha
-        return torch.clamp((torch.pow(-torch.log(dice + smooth), 0.3)).mean(), 0, 2)
+        return torch.clamp((torch.pow(-torch.log(dice + smooth), 0.3)).sum() / torch.count_nonzero(mask), 0, 2)
 
 
 class MutilSSLoss(nn.Module):
@@ -415,7 +415,7 @@ class MutilSSLoss(nn.Module):
         ss = self.r * specificity + (1 - self.r) * sensitivity
         mask = y_true.sum((0, 2)) > 0
         ss *= mask.to(ss.dtype)
-        return (ss * self.alpha).mean()
+        return (ss * self.alpha).sum() / torch.count_nonzero(mask)
 
 
 class MutilTverskyLoss(nn.Module):
@@ -456,7 +456,7 @@ class MutilTverskyLoss(nn.Module):
         # for this case, however it will be a modified jaccard loss
         mask = y_true.sum((0, 2)) > 0
         tversky *= mask.to(tversky.dtype)
-        return (tversky * self.alpha).mean()
+        return (tversky * self.alpha).sum() / torch.count_nonzero(mask)
 
 
 class LovaszLoss(nn.Module):
