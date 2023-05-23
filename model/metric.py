@@ -198,7 +198,7 @@ def multiclass_dice_coeffv2(input: Tensor, target: Tensor):
     gen_dice_coef = ((2. * intersection + smooth) / (denominator + smooth)).clamp_min(eps)
     mask = y_true_nobk.sum((0, 2)) > 0
     gen_dice_coef *= mask.to(gen_dice_coef.dtype)
-    return gen_dice_coef.mean()
+    return gen_dice_coef.sum() / torch.count_nonzero(mask)
 
 
 def multiclass_iou_coeff(input: Tensor, target: Tensor):
@@ -232,7 +232,7 @@ def multiclass_iou_coeffv2(input: Tensor, target: Tensor):
             y_pred_nobk.sum(1) + y_true_nobk.sum(1) - intersection.sum(1) + smooth).clamp_min(eps)
     mask = y_true_nobk.sum((0, 2)) > 0
     union *= mask.to(union.dtype)
-    return union.mean()
+    return union.sum() / torch.count_nonzero(mask)
 
 
 # classification metric
