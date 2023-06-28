@@ -20,6 +20,8 @@ MS-SSIM loss and SSIM loss for calculating image similarity.
 
 there are 9 type of segment metric,including dice,surface disatance,jaccard,VOE,RVD,FNR,FPR,ASSD,RMSD,MSD,etc.
 
+flask_app.py is the demo example of the Flask Deep Learning Segmentation Model Service Deployment.
+
 ## Contact
 * https://github.com/junqiangchen
 * email: 1207173174@qq.com
