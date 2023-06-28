@@ -55,14 +55,8 @@ def getresult():
 
 
 if __name__ == '__main__':
-    # 本机测试
-    # 使用curl命令行工具发送基于文件的POST请求来测试服务
-    # curl -X POST -F "file=@E:/TRAIN000106.jpg" http://0.0.0.0:8000/predict
-    # 使用curl命令行工具发送基于文件的GET请求来测试服务
-    # curl http://0.0.0.0:8000/getresult?file=TRAIN000106.jpg -o D:/TRAIN000106.jpg
-    # 同一个局域网下不同设备间
     # 使用curl命令行工具发送基于文件的POST请求来测试服务，192.168.10.96是服务器的ip
-    # curl -X POST -F "file=@E:/TRAIN000106.jpg" 192.168.10.96:8000/predict
+    # curl -X POST -F "file=@E:/TRAIN000106.nii.gz" 192.168.10.96:8000/predict
     # 使用curl命令行工具发送基于文件的GET请求来测试服务
-    # curl 192.168.10.96:8000/getresult?file=TRAIN000106.jpg -o D:/TRAIN000106.jpg
+    # curl 192.168.10.96:8000/getresult?file=TRAIN000106.nii.gz -o /home/Project/TRAIN000106.nii.gz
     app.run(host='0.0.0.0', port=8000)
