@@ -9,7 +9,7 @@ import torch.optim as optim
 import numpy as np
 from tqdm import tqdm
 from .metric import calc_accuracy
-from .visualization import plot_result
+from .visualization import plot_result,GradCAM
 from pathlib import Path
 import time
 import os
@@ -415,6 +415,15 @@ class MutilResNet2dModel(object):
             out_mask = np.argmax(full_mask_np, axis=0)
             out_mask = np.squeeze(out_mask)
         return out_mask
+
+    def Grad_CAM_Visual(self, full_img, target_category, target_layers):
+        input_tensor = torch.as_tensor(full_img).float().contiguous()
+        input_tensor = input_tensor.unsqueeze(0)
+        input_tensor = input_tensor.to(device=self.device, dtype=torch.float32)
+        cam = GradCAM(model=self.model, target_layers=target_layers, use_cuda=self.use_cuda)
+        grayscale_cam = cam(input_tensor=input_tensor, target_category=target_category)
+        grayscale_cam = grayscale_cam[0, :]
+        return grayscale_cam
 
     def inference(self, image):
         # resize image and normalization
