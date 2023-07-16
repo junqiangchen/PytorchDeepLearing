@@ -48,6 +48,7 @@ class DownTransition2d(nn.Module):
         self.bn1 = nn.GroupNorm(8, outChans)
         self.relu1 = nn.ReLU(inplace=True)
         self.ops = _make_nConv2d(outChans, nConvs)
+        self.do1 = nn.Dropout2d(p=prob, inplace=True)
 
     def forward(self, x):
         down = self.relu1(self.bn1(self.down_conv(x)))
