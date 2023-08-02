@@ -41,4 +41,4 @@ class Segmenation_Aug(object):
 if __name__ == '__main__':
     seg_aug = Segmenation_Aug()
     seg_aug.DataAugmentation('data/train.csv', 10,
-                             aug_path=r'E:\challenge\data\iChallenge-PM2022\2023.7.31\all_data\aug_train')
+                             aug_path=r'E:\challenge\aug_train')
