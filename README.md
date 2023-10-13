@@ -18,6 +18,8 @@ there are categorical loss functions of crossentropy,dice_loss,focal_loss etc al
 
 MS-SSIM loss and SSIM loss for calculating image similarity.
 
+centerline dice loss for vessel segmentation
+
 there are 9 type of segment metric,including dice,surface disatance,jaccard,VOE,RVD,FNR,FPR,ASSD,RMSD,MSD,etc.
 
 flask_app.py is the demo example of the Flask Deep Learning Segmentation Model Service Deployment.
