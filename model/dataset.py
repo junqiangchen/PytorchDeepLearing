@@ -156,3 +156,53 @@ class datasetModelSegwithopencv(Dataset):
         label = np.reshape(label, (H, W))
         label_tensor = torch.as_tensor(label).long()
         return {'image': images_tensor, 'label': label_tensor}
+
+
+# define datasetModelRegressionwithopencv class with npy
+class datasetModelRegressionwithopencv(Dataset):
+    def __init__(self, images, labels, targetsize=(1, 512, 512)):
+        super(datasetModelRegressionwithopencv).__init__()
+
+        self.labels = labels
+        self.images = images
+        self.targetsize = targetsize
+
+    def __len__(self):
+        return len(self.labels)
+
+    def __getitem__(self, index):
+        """
+        image should normalization,and npy type
+        :param index:
+        :return:
+        """
+        imagepath = self.images[index]
+        # load image
+        image = cv2.imread(imagepath, 0)
+        # resize image to fixed size
+        image = cv2.resize(image, (self.targetsize[1], self.targetsize[2]), interpolation=cv2.INTER_LINEAR)
+        # normalization image to zscore
+        mean = image.mean()
+        std = image.std()
+        eps = 1e-5
+        image = (image - mean) / (std + eps)
+        # transpose (H,W,C) order to (C,H,W) order
+        H, W = np.shape(image)[0], np.shape(image)[1]
+        image = np.reshape(image, (H, W, 1))
+        image = np.transpose(image, (2, 0, 1))
+        assert image.shape[0] == self.targetsize[0] and image.shape[1] == self.targetsize[1] and image.shape[2] == \
+               self.targetsize[2]
+        # convert numpy to tensor
+        images_tensor = torch.as_tensor(image).float()  # transform ndarray to tensor
+        # torch.set_printoptions(8)
+        labelpath = self.labels[index]
+        label = cv2.imread(labelpath, 0)
+        label = cv2.resize(label, (self.targetsize[1], self.targetsize[2]), interpolation=cv2.INTER_LINEAR)
+        # transpose (H,W,C) order to (C,H,W) order
+        label = np.reshape(label, (H, W))
+        label = (label - mean) / (std + eps)
+        label_tensor = torch.as_tensor(label).float()
+
+        mean_tensor = torch.as_tensor(mean).float()
+        std_tensor = torch.as_tensor(std + eps).float()
+        return {'image': images_tensor, 'label': label_tensor, 'mean': mean_tensor, 'std': std_tensor}
