@@ -1,6 +1,6 @@
 from .dataset import datasetModelRegressionwithopencv
 import torch.nn as nn
-from .metric import calc_psnrv2, calc_ssimv2
+from .metric import calc_psnr, calc_ssim
 from torch.utils.data import DataLoader
 import torch
 from collections import OrderedDict
@@ -275,9 +275,9 @@ class Pixel2PixelGAN2dModel(object):
 
     def _accuracy_function(self, accuracyname, input, target):
         if accuracyname[0] == 'PSNR':
-            psnr = calc_psnrv2(input, target)
+            psnr = calc_psnr(input, target)
         if accuracyname[1] == 'SSIM':
-            ssim = calc_ssimv2(input, target)
+            ssim = calc_ssim(input, target)
         return psnr, ssim
 
     def _train_loop(self, train_loader, totalTrainDLoss, totalTrainGLoss, totalTrainAccu, totalTrainssim, trainshow, e):
