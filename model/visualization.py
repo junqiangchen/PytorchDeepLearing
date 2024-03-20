@@ -49,6 +49,18 @@ def save_images2d(pdmask: Tensor, gtmask: Tensor, path, pixelvalue=255.):
     cv2.imwrite(path + "gtmask.bmp", np.clip(gtmask * pixelvalue, 0, 255).astype('uint8'))
 
 
+def save_images2dregression(src: Tensor, pdmask: Tensor, gtmask: Tensor, path, pixelvalue=255.):
+    src = src.detach().cpu().squeeze().numpy()
+    pdmask = pdmask.detach().cpu().squeeze().numpy()
+    gtmask = gtmask.detach().cpu().squeeze().numpy()
+    if np.max(gtmask) == 1:
+        pdmask[pdmask > 0.5] = 1
+        pdmask[pdmask < 0.5] = 0
+    cv2.imwrite(path + "src.png", np.clip(src * pixelvalue, 0, 255).astype('uint8'))
+    cv2.imwrite(path + "pdmask.png", np.clip(pdmask * pixelvalue, 0, 255).astype('uint8'))
+    cv2.imwrite(path + "gtmask.png", np.clip(gtmask * pixelvalue, 0, 255).astype('uint8'))
+
+
 # show CNN feature visulation
 class ActivationsAndGradients:
     """ Class for extracting activations and
