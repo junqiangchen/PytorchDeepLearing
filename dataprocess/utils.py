@@ -254,6 +254,25 @@ def save_file2csv(file_dir, file_name):
         out.writelines(out_file_image_path + "," + out_file_mask_path + "\n")
 
 
+
+def save_file2csvclassify(file_dir, file_name):
+    """
+    save file path to csv
+    :param file_dir:preprocess data path
+    :param file_name:output csv name
+    :return:
+    """
+    out = open(file_name, 'w')
+    labels = file_name_path(file_dir, True, False)
+    for index in range(len(labels)):
+        out_file_image_paths = file_dir + "/" + labels[index]
+        imagepaths = file_name_path(out_file_image_paths, False, True)
+        for file in range(len(imagepaths)):
+            out.writelines(str(index) + "," + out_file_image_paths + '/' + imagepaths[file] + "\n")
+    out.close()
+
+
+
 if __name__ == '__main__':
     # save_file2csv(r'D:\challenge\data\KiPA2022\trainstage\train', 'data/traindata.csv')
     # save_file2csv(r'D:\challenge\data\KiPA2022\trainstage\validation', 'data/validata.csv')
