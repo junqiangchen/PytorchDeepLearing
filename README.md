@@ -26,6 +26,8 @@ flask_app.py is the demo example of the Flask Deep Learning Segmentation Model S
 
 SegmentwithSAM.py is 3D medical image interactive segmentation,only support bbox.
 
+SegmentwithSAM2.py is 3D medical image interactive segmentation,support bbox and points.
+
 ## Contact
 * https://github.com/junqiangchen
 * email: 1207173174@qq.com
