@@ -24,9 +24,11 @@ there are 9 type of segment metric,including dice,surface disatance,jaccard,VOE,
 
 flask_app.py is the demo example of the Flask Deep Learning Segmentation Model Service Deployment.
 
-SegmentwithSAM.py is 3D medical image interactive segmentation,only support bbox.
+SegmentwithSAM.py is 3D medical image interactive segmentation,support bbox,points,mask.
 
-SegmentwithSAM2.py is 3D medical image interactive segmentation,support bbox and points.
+SegmentwithSAM2.py is 3D medical image interactive segmentation,support bbox,points,mask.
+
+SegmentwithVISTA3D.py is 3D medical image interactive segmentation,only support points.
 
 ## Contact
 * https://github.com/junqiangchen
