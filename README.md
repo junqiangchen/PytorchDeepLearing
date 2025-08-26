@@ -30,6 +30,8 @@ SegmentwithSAM2.py is 3D medical image interactive segmentation,support bbox,poi
 
 SegmentwithVISTA3D.py is 3D medical image interactive segmentation,only support points.
 
+SegmentwithnnInteractive.py is 3D medical image interactive segmentation,support bbox,points,mask,lasso.
+
 ## Contact
 * https://github.com/junqiangchen
 * email: 1207173174@qq.com
