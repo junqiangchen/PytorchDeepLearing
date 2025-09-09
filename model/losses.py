@@ -3,6 +3,7 @@ import torch.nn.functional as F
 import torch
 from .lovasz import _lovasz_hinge, _lovasz_softmax
 from typing import Optional, Union
+from monai.losses import SoftclDiceLoss
 
 
 # binary loss
@@ -28,6 +29,27 @@ class BinaryJaccardLoss(nn.Module):
             self.eps)
         loss = 1. - dsc
         return loss.mean()
+
+
+class BinaryclDiceLoss(nn.Module):
+    def __init__(self):
+        super(BinaryclDiceLoss, self).__init__()
+        self.softcldice = SoftclDiceLoss()
+
+    def forward(self, y_pred_logits, y_true):
+        y_pred = torch.sigmoid(y_pred_logits)
+        y_true = y_true.float()
+        y_pred = y_pred.float()
+
+        shape = y_pred_logits.shape
+        if len(shape) == 5:
+            y_true = y_true.float().contiguous().view(shape[0], shape[1], shape[2], shape[3], shape[4])
+            y_pred = y_pred.float().contiguous().view(shape[0], shape[1], shape[2], shape[3], shape[4])
+        if len(shape) == 4:
+            y_true = y_true.float().contiguous().view(shape[0], shape[1], shape[2], shape[3])
+            y_pred = y_pred.float().contiguous().view(shape[0], shape[1], shape[2], shape[3])
+        loss = self.softcldice(y_true, y_pred)
+        return loss
 
 
 class BinaryDiceLoss(nn.Module):
@@ -197,6 +219,24 @@ class BinaryCrossEntropyDiceLoss(nn.Module):
         return bce + dice
 
 
+class BinaryCrossEntropyDiceclDiceLoss(nn.Module):
+    """
+    binary Dice loss + BCE loss+clDice loss
+    """
+
+    def __init__(self):
+        super(BinaryCrossEntropyDiceclDiceLoss, self).__init__()
+        self.diceloss = BinaryDiceLoss()
+        self.bceloss = BinaryCrossEntropyLoss()
+        self.cldiceloss = BinaryclDiceLoss()
+
+    def forward(self, y_pred_logits, y_true):
+        dice = self.diceloss(y_pred_logits, y_true)
+        bce = self.bceloss(y_pred_logits, y_true)
+        cldice = self.cldiceloss(y_pred_logits, y_true)
+        return bce + dice + cldice
+
+
 class MCC_Loss(nn.Module):
     """
     Compute Matthews Correlation Coefficient Loss for image segmentation task. It only supports binary mode.
@@ -285,6 +325,40 @@ class MutilFocalLoss(nn.Module):
             return loss
 
 
+class MutilclDiceLoss(nn.Module):
+    def __init__(self, alpha):
+        super(MutilclDiceLoss, self).__init__()
+        self.alpha = alpha
+        self.softcldice = SoftclDiceLoss()
+
+    def forward(self, y_pred_logits, y_true):
+        """
+        y_pred_logits: [B, C, H, W, D] after sigmoid/softmax
+        y_true: one-hot [B, C, H, W, D]
+        """
+        y_pred = torch.softmax(y_pred_logits, dim=1)
+        Batchsize, Channel = y_pred.shape[0], y_pred.shape[1]
+        y_pred = y_pred.float().contiguous().view(Batchsize, Channel, -1)
+        y_true = y_true.long().contiguous().view(Batchsize, -1)
+        y_true = F.one_hot(y_true, Channel)  # N,H*W -> N,H*W, C
+        y_true = y_true.permute(0, 2, 1).float()  # H, C, H*W
+
+        shape = y_pred_logits.shape
+        if len(shape) == 5:
+            y_true = y_true.float().contiguous().view(shape[0], shape[1], shape[2], shape[3], shape[4])
+            y_pred = y_pred.float().contiguous().view(shape[0], shape[1], shape[2], shape[3], shape[4])
+        if len(shape) == 4:
+            y_true = y_true.float().contiguous().view(shape[0], shape[1], shape[2], shape[3])
+            y_pred = y_pred.float().contiguous().view(shape[0], shape[1], shape[2], shape[3])
+
+        losses = []
+        for c in range(1, Channel):  # 跳过背景通道
+            loss_c = self.softcldice(y_true[:, c:c + 1, ...], y_pred[:, c:c + 1, ...])
+            losses.append(loss_c * self.alpha[c])
+        loss = torch.mean(torch.stack(losses))
+        return loss
+
+
 class MutilDiceLoss(nn.Module):
     """
         multi label dice loss with weighted
@@ -323,7 +397,7 @@ class MutilDiceLoss(nn.Module):
         mask = y_true.sum((0, 2)) > 0
         loss *= mask.to(loss.dtype)
         return (loss * self.alpha).sum() / torch.count_nonzero(mask)
-    
+
 
 class MutilCrossEntropyDiceLoss(nn.Module):
     """
@@ -340,6 +414,25 @@ class MutilCrossEntropyDiceLoss(nn.Module):
         celoss = MutilCrossEntropyLoss(self.alpha)
         ce = celoss(y_pred_logits, y_true)
         return ce + dice
+
+
+class MutilCrossEntropyDiceclDiceLoss(nn.Module):
+    """
+    Mutil Dice loss + CE loss+ clDice
+    """
+
+    def __init__(self, alpha):
+        super(MutilCrossEntropyDiceclDiceLoss, self).__init__()
+        self.alpha = alpha
+        self.diceloss = MutilDiceLoss(self.alpha)
+        self.celoss = MutilCrossEntropyLoss(self.alpha)
+        self.cldiceloss = MutilclDiceLoss(self.alpha)
+
+    def forward(self, y_pred_logits, y_true):
+        dice = self.diceloss(y_pred_logits, y_true)
+        ce = self.celoss(y_pred_logits, y_true)
+        cldice = self.cldiceloss(y_pred_logits, y_true)
+        return ce + dice + cldice
 
 
 class MutilELDiceLoss(nn.Module):
