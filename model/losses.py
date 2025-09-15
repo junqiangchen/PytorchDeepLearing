@@ -4,6 +4,9 @@ import torch
 from .lovasz import _lovasz_hinge, _lovasz_softmax
 from typing import Optional, Union
 from monai.losses import SoftclDiceLoss
+from monai.losses.cldice import soft_skel
+from nnunetv2.utilities.ddp_allgather import AllGatherGrad
+
 
 
 # binary loss
@@ -50,6 +53,45 @@ class BinaryclDiceLoss(nn.Module):
             y_pred = y_pred.float().contiguous().view(shape[0], shape[1], shape[2], shape[3])
         loss = self.softcldice(y_true, y_pred)
         return loss
+
+
+class BinarySoftSkeletonRecallLoss(nn.Module):
+    def __init__(self, smooth: float = 1., iter_: int = 3):
+        """
+        Binary segmentation version (1 channel, sigmoid output).
+        """
+        super(BinarySoftSkeletonRecallLoss, self).__init__()
+        self.smooth = smooth
+        self.iter = iter_
+
+    def forward(self, y_pred_logits, y_true):
+        """
+        x: (B, 1, D, H, W)  - predicted logits
+        y: (B, D, H, W)     - ground truth mask (0/1)
+        """
+        y_pred = torch.sigmoid(y_pred_logits)
+        y_true = y_true.float()
+        y_pred = y_pred.float()
+
+        shape = y_pred_logits.shape
+        if len(shape) == 5:
+            y_true = y_true.float().contiguous().view(shape[0], shape[1], shape[2], shape[3], shape[4])
+            y_pred = y_pred.float().contiguous().view(shape[0], shape[1], shape[2], shape[3], shape[4])
+        if len(shape) == 4:
+            y_true = y_true.float().contiguous().view(shape[0], shape[1], shape[2], shape[3])
+            y_pred = y_pred.float().contiguous().view(shape[0], shape[1], shape[2], shape[3])
+
+        skel_pred = soft_skel(y_pred, self.iter)
+        skel_true = soft_skel(y_true, self.iter)
+
+        axes = list(range(2, len(shape)))  # 所有空间维度
+        with torch.no_grad():
+            sum_gt = skel_true.sum(axes)
+        inter_rec = (skel_pred * skel_true).sum(axes)
+        # skeleton recall
+        rec = (inter_rec + self.smooth) / (torch.clip(sum_gt + self.smooth, 1e-8))
+        rec = rec.mean()
+        return 1 - rec
 
 
 class BinaryDiceLoss(nn.Module):
@@ -237,6 +279,24 @@ class BinaryCrossEntropyDiceclDiceLoss(nn.Module):
         return bce + dice + cldice
 
 
+class BinaryCrossEntropyDiceclRecalLoss(nn.Module):
+    """
+    binary Dice loss + BCE loss+clRecall loss
+    """
+
+    def __init__(self):
+        super(BinaryCrossEntropyDiceclRecalLoss, self).__init__()
+        self.diceloss = BinaryDiceLoss()
+        self.bceloss = BinaryCrossEntropyLoss()
+        self.clrecalloss = BinarySoftSkeletonRecallLoss()
+
+    def forward(self, y_pred_logits, y_true):
+        dice = self.diceloss(y_pred_logits, y_true)
+        bce = self.bceloss(y_pred_logits, y_true)
+        clrecal = self.clrecalloss(y_pred_logits, y_true)
+        return bce + dice + clrecal
+
+
 class MCC_Loss(nn.Module):
     """
     Compute Matthews Correlation Coefficient Loss for image segmentation task. It only supports binary mode.
@@ -324,6 +384,50 @@ class MutilFocalLoss(nn.Module):
             loss = (((1 - pt) ** self.gamma) * logpt).mean()
             return loss
 
+
+class MutilSoftSkeletonRecallLoss(nn.Module):
+    def __init__(self, batch_dice: bool = False, do_bg: bool = False, smooth: float = 1.,
+                 ddp: bool = True):
+        """
+        saves 1.6 GB on Dataset017 3d_lowres
+        """
+        super(MutilSoftSkeletonRecallLoss, self).__init__()
+
+        if do_bg:
+            raise RuntimeError("skeleton recall does not work with background")
+        self.batch_dice = batch_dice
+        self.smooth = smooth
+        self.ddp = ddp
+
+    def forward(self, x, y, loss_mask=None):
+        shp_x, shp_y = x.shape, y.shape
+        x = torch.softmax(x, dim=1)
+        x = x[:, 1:]
+        # make everything shape (b, c)
+        axes = list(range(2, len(shp_x)))
+        with torch.no_grad():
+            if len(shp_x) != len(shp_y):
+                y = y.view((shp_y[0], 1, *shp_y[1:]))
+            if all([i == j for i, j in zip(shp_x, shp_y)]):
+                # if this is the case then gt is probably already a one hot encoding
+                y_onehot = y[:, 1:]
+            else:
+                gt = y.long()
+                y_onehot = torch.zeros(shp_x, device=x.device, dtype=y.dtype)
+                y_onehot.scatter_(1, gt, 1)
+                y_onehot = y_onehot[:, 1:]
+            sum_gt = y_onehot.sum(axes) if loss_mask is None else (y_onehot * loss_mask).sum(axes)
+        inter_rec = (x * y_onehot).sum(axes) if loss_mask is None else (x * y_onehot * loss_mask).sum(axes)
+        if self.ddp and self.batch_dice:
+            inter_rec = AllGatherGrad.apply(inter_rec).sum(0)
+            sum_gt = AllGatherGrad.apply(sum_gt).sum(0)
+        if self.batch_dice:
+            inter_rec = inter_rec.sum(0)
+            sum_gt = sum_gt.sum(0)
+        rec = (inter_rec + self.smooth) / (torch.clip(sum_gt + self.smooth, 1e-8))
+        rec = rec.mean()
+        return 1 - rec
+        
 
 class MutilclDiceLoss(nn.Module):
     def __init__(self, alpha):
@@ -434,6 +538,25 @@ class MutilCrossEntropyDiceclDiceLoss(nn.Module):
         cldice = self.cldiceloss(y_pred_logits, y_true)
         return ce + dice + cldice
 
+
+class MutilCrossEntropyDiceclRecallLoss(nn.Module):
+    """
+    Mutil Dice loss + CE loss+ cl Recall
+    """
+
+    def __init__(self, alpha):
+        super(MutilCrossEntropyDiceclRecallLoss, self).__init__()
+        self.alpha = alpha
+        self.diceloss = MutilDiceLoss(self.alpha)
+        self.celoss = MutilCrossEntropyLoss(self.alpha)
+        self.clrecallloss = MutilSoftSkeletonRecallLoss()
+
+    def forward(self, y_pred_logits, y_true):
+        dice = self.diceloss(y_pred_logits, y_true)
+        ce = self.celoss(y_pred_logits, y_true)
+        cldice = self.clrecallloss(y_pred_logits, y_true)
+        return ce + dice + cldice
+        
 
 class MutilELDiceLoss(nn.Module):
     """
