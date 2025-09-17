@@ -3,9 +3,7 @@ import torch.nn.functional as F
 import torch
 from .lovasz import _lovasz_hinge, _lovasz_softmax
 from typing import Optional, Union
-from monai.losses import SoftclDiceLoss
-from monai.losses.cldice import soft_skel
-from nnunetv2.utilities.ddp_allgather import AllGatherGrad
+from monai.losses.cldice import soft_skel, soft_dilate
 
 
 
@@ -35,9 +33,10 @@ class BinaryJaccardLoss(nn.Module):
 
 
 class BinaryclDiceLoss(nn.Module):
-    def __init__(self):
+    def __init__(self, iter_: int = 3, smooth: float = 1.0):
         super(BinaryclDiceLoss, self).__init__()
-        self.softcldice = SoftclDiceLoss()
+        self.iter = iter_
+        self.smooth = smooth
 
     def forward(self, y_pred_logits, y_true):
         y_pred = torch.sigmoid(y_pred_logits)
@@ -51,7 +50,15 @@ class BinaryclDiceLoss(nn.Module):
         if len(shape) == 4:
             y_true = y_true.float().contiguous().view(shape[0], shape[1], shape[2], shape[3])
             y_pred = y_pred.float().contiguous().view(shape[0], shape[1], shape[2], shape[3])
-        loss = self.softcldice(y_true, y_pred)
+        skel_pred = soft_skel(y_pred, self.iter)
+        skel_true = soft_skel(y_true, self.iter)
+        tprec = (torch.sum(torch.multiply(skel_pred, y_true)[:, :, ...]) + self.smooth) / (
+                torch.sum(skel_pred[:, :, ...]) + self.smooth
+        )
+        tsens = (torch.sum(torch.multiply(skel_true, y_pred)[:, :, ...]) + self.smooth) / (
+                torch.sum(skel_true[:, :, ...]) + self.smooth
+        )
+        loss: torch.Tensor = 1.0 - 2.0 * (tprec * tsens) / (tprec + tsens)
         return loss
 
 
@@ -81,17 +88,15 @@ class BinarySoftSkeletonRecallLoss(nn.Module):
             y_true = y_true.float().contiguous().view(shape[0], shape[1], shape[2], shape[3])
             y_pred = y_pred.float().contiguous().view(shape[0], shape[1], shape[2], shape[3])
 
-        skel_pred = soft_skel(y_pred, self.iter)
         skel_true = soft_skel(y_true, self.iter)
+        skel_true = soft_dilate(soft_dilate(skel_true))
 
-        axes = list(range(2, len(shape)))  # 所有空间维度
-        with torch.no_grad():
-            sum_gt = skel_true.sum(axes)
-        inter_rec = (skel_pred * skel_true).sum(axes)
+        axes = list(range(2, len(shape)))
+        sum_gt = skel_true.sum(axes)
+        inter_rec = (y_pred * skel_true).sum(axes)
         # skeleton recall
         rec = (inter_rec + self.smooth) / (torch.clip(sum_gt + self.smooth, 1e-8))
-        rec = rec.mean()
-        return 1 - rec
+        return 1 - rec.mean()
 
 
 class BinaryDiceLoss(nn.Module):
@@ -386,54 +391,44 @@ class MutilFocalLoss(nn.Module):
 
 
 class MutilSoftSkeletonRecallLoss(nn.Module):
-    def __init__(self, batch_dice: bool = False, do_bg: bool = False, smooth: float = 1.,
-                 ddp: bool = True):
-        """
-        saves 1.6 GB on Dataset017 3d_lowres
-        """
+    def __init__(self, smooth: float = 1., iter_: int = 3):
         super(MutilSoftSkeletonRecallLoss, self).__init__()
-
-        if do_bg:
-            raise RuntimeError("skeleton recall does not work with background")
-        self.batch_dice = batch_dice
+        self.iter = iter_
         self.smooth = smooth
-        self.ddp = ddp
 
-    def forward(self, x, y, loss_mask=None):
-        shp_x, shp_y = x.shape, y.shape
-        x = torch.softmax(x, dim=1)
-        x = x[:, 1:]
-        # make everything shape (b, c)
-        axes = list(range(2, len(shp_x)))
-        with torch.no_grad():
-            if len(shp_x) != len(shp_y):
-                y = y.view((shp_y[0], 1, *shp_y[1:]))
-            if all([i == j for i, j in zip(shp_x, shp_y)]):
-                # if this is the case then gt is probably already a one hot encoding
-                y_onehot = y[:, 1:]
-            else:
-                gt = y.long()
-                y_onehot = torch.zeros(shp_x, device=x.device, dtype=y.dtype)
-                y_onehot.scatter_(1, gt, 1)
-                y_onehot = y_onehot[:, 1:]
-            sum_gt = y_onehot.sum(axes) if loss_mask is None else (y_onehot * loss_mask).sum(axes)
-        inter_rec = (x * y_onehot).sum(axes) if loss_mask is None else (x * y_onehot * loss_mask).sum(axes)
-        if self.ddp and self.batch_dice:
-            inter_rec = AllGatherGrad.apply(inter_rec).sum(0)
-            sum_gt = AllGatherGrad.apply(sum_gt).sum(0)
-        if self.batch_dice:
-            inter_rec = inter_rec.sum(0)
-            sum_gt = sum_gt.sum(0)
+    def forward(self, y_pred_logits, y_true):
+        y_pred = torch.softmax(y_pred_logits, dim=1)
+        Batchsize, Channel = y_pred.shape[0], y_pred.shape[1]
+        y_pred = y_pred.float().contiguous().view(Batchsize, Channel, -1)
+        y_true = y_true.long().contiguous().view(Batchsize, -1)
+        y_true = F.one_hot(y_true, Channel)  # N,H*W -> N,H*W, C
+        y_true = y_true.permute(0, 2, 1).float()  # H, C, H*W
+
+        shape = y_pred_logits.shape
+        if len(shape) == 5:
+            y_true = y_true.float().contiguous().view(shape[0], shape[1], shape[2], shape[3], shape[4])
+            y_pred = y_pred.float().contiguous().view(shape[0], shape[1], shape[2], shape[3], shape[4])
+        if len(shape) == 4:
+            y_true = y_true.float().contiguous().view(shape[0], shape[1], shape[2], shape[3])
+            y_pred = y_pred.float().contiguous().view(shape[0], shape[1], shape[2], shape[3])
+
+        skel_true = soft_skel(y_true, self.iter)
+        skel_true = soft_dilate(soft_dilate(skel_true))
+
+        axes = list(range(2, len(shape)))
+        # skeleton recall
+        inter_rec = (torch.multiply(y_pred, skel_true)[:, 1:, ...]).sum(axes)
+        sum_gt = skel_true[:, 1:, ...].sum(axes)
         rec = (inter_rec + self.smooth) / (torch.clip(sum_gt + self.smooth, 1e-8))
-        rec = rec.mean()
-        return 1 - rec
-        
+        return 1 - rec.mean()
+
 
 class MutilclDiceLoss(nn.Module):
-    def __init__(self, alpha):
+    def __init__(self, alpha, iter_: int = 3, smooth: float = 1.0):
         super(MutilclDiceLoss, self).__init__()
         self.alpha = alpha
-        self.softcldice = SoftclDiceLoss()
+        self.iter = iter_
+        self.smooth = smooth
 
     def forward(self, y_pred_logits, y_true):
         """
@@ -455,11 +450,15 @@ class MutilclDiceLoss(nn.Module):
             y_true = y_true.float().contiguous().view(shape[0], shape[1], shape[2], shape[3])
             y_pred = y_pred.float().contiguous().view(shape[0], shape[1], shape[2], shape[3])
 
-        losses = []
-        for c in range(1, Channel):  # 跳过背景通道
-            loss_c = self.softcldice(y_true[:, c:c + 1, ...], y_pred[:, c:c + 1, ...])
-            losses.append(loss_c * self.alpha[c])
-        loss = torch.mean(torch.stack(losses))
+        skel_pred = soft_skel(y_pred, self.iter)
+        skel_true = soft_skel(y_true, self.iter)
+        tprec = (torch.sum(torch.multiply(skel_pred, y_true)[:, 1:, ...]) + self.smooth) / (
+                torch.sum(skel_pred[:, 1:, ...]) + self.smooth
+        )
+        tsens = (torch.sum(torch.multiply(skel_true, y_pred)[:, 1:, ...]) + self.smooth) / (
+                torch.sum(skel_true[:, 1:, ...]) + self.smooth
+        )
+        loss: torch.Tensor = 1.0 - 2.0 * (tprec * tsens) / (tprec + tsens)
         return loss
 
 
