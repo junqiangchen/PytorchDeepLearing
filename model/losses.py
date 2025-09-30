@@ -89,7 +89,7 @@ class BinarySoftSkeletonRecallLoss(nn.Module):
             y_pred = y_pred.float().contiguous().view(shape[0], shape[1], shape[2], shape[3])
 
         skel_true = soft_skel(y_true, self.iter)
-        skel_true = soft_dilate(soft_dilate(skel_true))
+        skel_true = soft_dilate(skel_true)
 
         axes = list(range(2, len(shape)))
         sum_gt = skel_true.sum(axes)
@@ -413,7 +413,7 @@ class MutilSoftSkeletonRecallLoss(nn.Module):
             y_pred = y_pred.float().contiguous().view(shape[0], shape[1], shape[2], shape[3])
 
         skel_true = soft_skel(y_true, self.iter)
-        skel_true = soft_dilate(soft_dilate(skel_true))
+        skel_true = soft_dilate(skel_true)
 
         axes = list(range(2, len(shape)))
         # skeleton recall
